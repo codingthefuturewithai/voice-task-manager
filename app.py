@@ -102,6 +102,7 @@ def render_task(task, task_manager, tts_service):
     
     with col_delete:
         if st.button("🗑️", key=f"del_{task['id']}"):
+            print(f"Deleting task: {task['id']} - {task['text']}")
             task_manager.delete_task(task['id'])
             tts_service.speak_confirmation('task_deleted')
             st.rerun()
@@ -204,7 +205,7 @@ def main():
                             
                             if st.button("Add to Task List"):
                                 for task in processed_tasks:
-                                    task_manager.add_task(task)
+                                    task_manager.add_task(task, priority='medium', category=None)
                                 tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
                                 st.success("Tasks added!")
                                 st.rerun()

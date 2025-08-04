@@ -95,7 +95,10 @@ class TaskManager:
     
     def delete_task(self, task_id: str):
         """Delete a task"""
+        print(f"TaskManager: Deleting task {task_id}")
+        print(f"TaskManager: Before delete - {len(self.tasks)} tasks")
         self.tasks = [t for t in self.tasks if t['id'] != task_id]
+        print(f"TaskManager: After delete - {len(self.tasks)} tasks")
         self._save_tasks()
     
     def clear_all(self):

@@ -51,25 +51,30 @@ class TTSService:
         """
         Speak a confirmation message for common actions
         """
-        if action == 'task_added':
-            message = f"Task added successfully"
-        elif action == 'task_updated':
-            message = f"Task updated successfully"
-        elif action == 'task_deleted':
-            message = f"Task deleted successfully"
-        elif action == 'task_completed':
-            message = f"Task marked as complete"
-        elif action == 'tasks_cleared':
-            message = f"All tasks cleared"
-        elif action == 'low_confidence':
-            message = f"I'm not sure what you meant. Please try again"
-        else:
-            message = action
-        
-        if details:
-            message += f". {details}"
-        
-        self.speak(message)
+        try:
+            if action == 'task_added':
+                message = f"Task added successfully"
+            elif action == 'task_updated':
+                message = f"Task updated successfully"
+            elif action == 'task_deleted':
+                message = f"Task deleted successfully"
+            elif action == 'task_completed':
+                message = f"Task marked as complete"
+            elif action == 'tasks_cleared':
+                message = f"All tasks cleared"
+            elif action == 'low_confidence':
+                message = f"I'm not sure what you meant. Please try again"
+            else:
+                message = action
+            
+            if details:
+                message += f". {details}"
+            
+            self.speak(message)
+        except Exception as e:
+            print(f"TTS error: {e}")
+            # Fallback to just displaying the message
+            st.info(f"Voice feedback: {message}")
     
     def speak_query_response(self, response: str):
         """
