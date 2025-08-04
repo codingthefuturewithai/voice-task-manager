@@ -156,6 +156,7 @@ def main():
         st.session_state.processed_tasks = None
         st.session_state.transcription = None
         st.session_state.last_command_result = None
+        st.session_state.audio_processed = False
         st.session_state.last_mode = st.session_state.mode
     
     col1, col2 = st.columns([1, 2])
@@ -179,15 +180,18 @@ def main():
             st.session_state.processed_tasks = None
         if 'transcription' not in st.session_state:
             st.session_state.transcription = None
+        if 'audio_processed' not in st.session_state:
+            st.session_state.audio_processed = False
         
         # Check if we have new audio input
-        if audio_value:
+        if audio_value and not st.session_state.audio_processed:
             # Create a simple hash of the audio to detect changes
             audio_hash = hash(str(audio_value.name) + str(audio_value.size))
             
             # Only process if this is new audio
             if audio_hash != st.session_state.last_audio_hash:
                 st.session_state.last_audio_hash = audio_hash
+                st.session_state.audio_processed = True
                 
                 # Display the recorded audio
                 st.audio(audio_value)
@@ -233,6 +237,7 @@ def main():
                                 st.session_state.processed_tasks = None
                                 st.session_state.transcription = None
                                 st.session_state.last_audio_hash = None
+                                st.session_state.audio_processed = False
                     else:
                         # Command mode
                         with st.spinner("Processing command..."):
@@ -258,6 +263,7 @@ def main():
                         # Clear audio state after processing
                         st.session_state.transcription = None
                         st.session_state.last_audio_hash = None
+                        st.session_state.audio_processed = False
             else:
                 # Show existing audio without reprocessing (but don't duplicate the audio widget)
                 # Only show the processed results, not the audio widget again
@@ -300,6 +306,7 @@ def main():
                         st.session_state.processed_tasks = None
                         st.session_state.transcription = None
                         st.session_state.last_audio_hash = None
+                        st.session_state.audio_processed = False
         
         st.divider()
         
