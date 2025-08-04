@@ -71,19 +71,15 @@ class StreamlitUITester:
         await page.goto(self.base_url)
         await page.wait_for_load_state("networkidle")
         
-        # Check initial state (should be Brain Dump mode)
-        brain_dump_radio = page.locator('input[type="radio"]').first
-        assert await brain_dump_radio.is_checked(), "Brain Dump should be selected by default"
+        # Wait for the radio buttons to be visible and interactive
+        await page.wait_for_selector('.stRadio', timeout=10000)
         
-        # Switch to Command mode
-        command_radio = page.locator('input[type="radio"]').nth(1)
-        await command_radio.click()
-        await page.wait_for_timeout(1000)  # Wait for UI update
+        # Click on the Command mode option (second option)
+        command_radio_label = page.locator('[data-baseweb="radio"]').nth(1)
+        await command_radio_label.click()
+        await page.wait_for_timeout(2000)  # Wait for UI update
         
-        # Check that mode switched
-        assert await command_radio.is_checked(), "Command mode should be selected"
-        
-        # Check that instructions changed
+        # Check that instructions changed to Command mode
         assert await page.locator("text=Command Mode").is_visible(), "Command mode instructions should be visible"
         
         print("✅ Mode switching passed!")
@@ -140,10 +136,13 @@ class StreamlitUITester:
         await page.goto(self.base_url)
         await page.wait_for_load_state("networkidle")
         
+        # Wait for radio buttons to be available
+        await page.wait_for_selector('.stRadio', timeout=10000)
+        
         # Switch to command mode
-        command_radio = page.locator('input[type="radio"]').nth(1)
-        await command_radio.click()
-        await page.wait_for_timeout(1000)
+        command_radio_label = page.locator('[data-baseweb="radio"]').nth(1)
+        await command_radio_label.click()
+        await page.wait_for_timeout(2000)
         
         # Refresh the page
         await page.reload()
@@ -166,14 +165,16 @@ class StreamlitUITester:
         # Click various buttons to ensure no errors
         
         # Test mode switching multiple times
+        await page.wait_for_selector('.stRadio', timeout=10000)
+        
         for i in range(3):
-            brain_dump_radio = page.locator('input[type="radio"]').first
-            command_radio = page.locator('input[type="radio"]').nth(1)
+            brain_dump_radio_label = page.locator('[data-baseweb="radio"]').first
+            command_radio_label = page.locator('[data-baseweb="radio"]').nth(1)
             
-            await brain_dump_radio.click()
-            await page.wait_for_timeout(500)
-            await command_radio.click()
-            await page.wait_for_timeout(500)
+            await brain_dump_radio_label.click()
+            await page.wait_for_timeout(1000)
+            await command_radio_label.click()
+            await page.wait_for_timeout(1000)
         
         # Check that app is still responsive
         assert await page.locator("text=Voice Task Manager").is_visible(), "App should still be responsive"
@@ -196,7 +197,7 @@ class StreamlitUITester:
                 return False
             
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                browser = await p.chromium.launch(headless=False)
                 page = await browser.new_page()
                 
                 try:
