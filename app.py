@@ -60,7 +60,6 @@ def render_task(task, task_manager, tts_service):
         if st.checkbox("Done", value=task["completed"], key=f"check_{task['id']}", label_visibility="hidden"):
             task_manager.toggle_task(task['id'])
             tts_service.speak_confirmation('task_completed')
-            st.rerun()
     
     with col_priority:
         priority_emoji = priority_colors.get(task.get('priority', 'medium'), '⚪')
@@ -76,11 +75,9 @@ def render_task(task, task_manager, tts_service):
                     task_manager.update_task(task['id'], text=new_text)
                     st.session_state[edit_key] = False
                     tts_service.speak_confirmation('task_updated')
-                    st.rerun()
             with col_cancel:
                 if st.button("❌", key=f"cancel_{task['id']}"):
                     st.session_state[edit_key] = False
-                    st.rerun()
         else:
             # Display mode
             if task["completed"]:
@@ -91,7 +88,6 @@ def render_task(task, task_manager, tts_service):
             # Edit button
             if st.button("✏️", key=f"edit_btn_{task['id']}"):
                 st.session_state[edit_key] = True
-                st.rerun()
     
     with col_category:
         if task.get('category'):
@@ -105,7 +101,6 @@ def render_task(task, task_manager, tts_service):
             print(f"Deleting task: {task['id']} - {task['text']}")
             task_manager.delete_task(task['id'])
             tts_service.speak_confirmation('task_deleted')
-            st.rerun()
 
 def render_stats(stats):
     """Render enhanced statistics"""
@@ -170,6 +165,10 @@ def main():
         # Store audio hash to detect new recordings
         if 'last_audio_hash' not in st.session_state:
             st.session_state.last_audio_hash = None
+        if 'processed_tasks' not in st.session_state:
+            st.session_state.processed_tasks = None
+        if 'transcription' not in st.session_state:
+            st.session_state.transcription = None
         
         # Check if we have new audio input
         if audio_value:
@@ -190,6 +189,7 @@ def main():
                     transcription = whisper.transcribe(audio_bytes)
                     
                 if transcription:
+                    st.session_state.transcription = transcription
                     st.success("Transcribed!")
                     st.text_area("Raw Transcription:", transcription, height=100)
                     
@@ -197,6 +197,7 @@ def main():
                     if st.session_state.mode == 'braindump':
                         with st.spinner("Processing brain dump..."):
                             processed_tasks = llm.process_braindump(transcription)
+                            st.session_state.processed_tasks = processed_tasks
                         
                         if processed_tasks:
                             st.info("AI Processed Tasks:")
@@ -208,7 +209,10 @@ def main():
                                     task_manager.add_task(task, priority='medium', category=None)
                                 tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
                                 st.success("Tasks added!")
-                                st.rerun()
+                                # Clear the processed tasks after adding
+                                st.session_state.processed_tasks = None
+                                st.session_state.transcription = None
+                                st.session_state.last_audio_hash = None
                     else:
                         # Command mode
                         with st.spinner("Processing command..."):
@@ -230,7 +234,10 @@ def main():
                         
                         # Show confidence score
                         st.metric("Confidence", f"{result['confidence']:.1%}")
-                        st.rerun()
+                        
+                        # Clear audio state after processing
+                        st.session_state.transcription = None
+                        st.session_state.last_audio_hash = None
             else:
                 # Show existing audio without reprocessing
                 st.audio(audio_value)
@@ -247,6 +254,22 @@ def main():
                     
                     if 'confidence' in result:
                         st.metric("Confidence", f"{result['confidence']:.1%}")
+                
+                # Show processed tasks if available (for brain dump mode)
+                if st.session_state.processed_tasks:
+                    st.info("AI Processed Tasks:")
+                    for task in st.session_state.processed_tasks:
+                        st.write(f"• {task}")
+                    
+                    if st.button("Add to Task List"):
+                        for task in st.session_state.processed_tasks:
+                            task_manager.add_task(task, priority='medium', category=None)
+                        tts_service.speak_confirmation('task_added', f"Added {len(st.session_state.processed_tasks)} tasks")
+                        st.success("Tasks added!")
+                        # Clear the processed tasks after adding
+                        st.session_state.processed_tasks = None
+                        st.session_state.transcription = None
+                        st.session_state.last_audio_hash = None
         
         st.divider()
         
@@ -260,7 +283,6 @@ def main():
                 task_manager.clear_all()
                 tts_service.speak_confirmation('tasks_cleared')
                 st.success("All tasks cleared!")
-                st.rerun()
         
         with col_prioritize:
             if st.button("Auto-Prioritize", type="secondary"):
@@ -268,7 +290,6 @@ def main():
                 updated_tasks = llm.prioritize_tasks(current_tasks)
                 tts_service.speak_confirmation('task_updated', "Tasks prioritized")
                 st.success("Tasks prioritized!")
-                st.rerun()
     
     with col2:
         st.header("📋 Task List")
