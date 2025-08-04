@@ -55,15 +55,23 @@ class CommandRouter:
                 action_taken = True
                 message = f"Added task: {new_content}"
                 
-            elif intent == 'modify' and target_task and new_content:
+            elif intent == 'modify' and target_task:
                 # Modify existing task
-                self.tasks.update_task(target_task['id'], text=new_content)
-                if priority != 'medium':
+                if new_content:
+                    self.tasks.update_task(target_task['id'], text=new_content)
+                if priority and priority != 'medium':
                     self.tasks.update_task(target_task['id'], priority=priority)
                 if category:
                     self.tasks.update_task(target_task['id'], category=category)
                 action_taken = True
-                message = f"Updated task: {new_content}"
+                if new_content:
+                    message = f"Updated task: {new_content}"
+                elif category:
+                    message = f"Updated task category to: {category}"
+                elif priority and priority != 'medium':
+                    message = f"Updated task priority to: {priority}"
+                else:
+                    message = f"Updated task: {target_task['text']}"
                 
             elif intent == 'delete' and target_task:
                 # Delete task
