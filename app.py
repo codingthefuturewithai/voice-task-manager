@@ -138,10 +138,6 @@ def main():
         st.session_state.mode = 'braindump'
     if 'last_command_result' not in st.session_state:
         st.session_state.last_command_result = None
-    if 'processing_audio' not in st.session_state:
-        st.session_state.processing_audio = False
-    if 'current_audio' not in st.session_state:
-        st.session_state.current_audio = None
     
     # Mode selector
     st.subheader("🎯 Mode Selection")
@@ -167,90 +163,89 @@ def main():
         else:
             st.info("🎯 **Command Mode**: Give specific commands like 'Add a task to review documentation' or 'Mark the first task as complete'.")
         
-        # Only process audio if we have new audio input
+        # Audio input - only process new audio
         audio_value = st.audio_input("Click to record your voice")
         
-        # Check if we have new audio (not just a rerun)
-        if audio_value and not st.session_state.processing_audio:
-            st.session_state.processing_audio = True
-            st.session_state.current_audio = audio_value
+        # Store audio hash to detect new recordings
+        if 'last_audio_hash' not in st.session_state:
+            st.session_state.last_audio_hash = None
+        
+        # Check if we have new audio input
+        if audio_value:
+            # Create a simple hash of the audio to detect changes
+            audio_hash = hash(str(audio_value.name) + str(audio_value.size))
             
-            # Display the recorded audio
-            st.audio(audio_value)
-            
-            # Get audio bytes from the UploadedFile object
-            audio_bytes = audio_value.read()
-            
-            with st.spinner("Transcribing..."):
-                transcription = whisper.transcribe(audio_bytes)
+            # Only process if this is new audio
+            if audio_hash != st.session_state.last_audio_hash:
+                st.session_state.last_audio_hash = audio_hash
                 
-            if transcription:
-                st.success("Transcribed!")
-                st.text_area("Raw Transcription:", transcription, height=100)
+                # Display the recorded audio
+                st.audio(audio_value)
                 
-                # Process based on mode
-                if st.session_state.mode == 'braindump':
-                    with st.spinner("Processing brain dump..."):
-                        processed_tasks = llm.process_braindump(transcription)
+                # Get audio bytes from the UploadedFile object
+                audio_bytes = audio_value.read()
+                
+                with st.spinner("Transcribing..."):
+                    transcription = whisper.transcribe(audio_bytes)
                     
-                    if processed_tasks:
-                        st.info("AI Processed Tasks:")
-                        for task in processed_tasks:
-                            st.write(f"• {task}")
+                if transcription:
+                    st.success("Transcribed!")
+                    st.text_area("Raw Transcription:", transcription, height=100)
+                    
+                    # Process based on mode
+                    if st.session_state.mode == 'braindump':
+                        with st.spinner("Processing brain dump..."):
+                            processed_tasks = llm.process_braindump(transcription)
                         
-                        if st.button("Add to Task List"):
+                        if processed_tasks:
+                            st.info("AI Processed Tasks:")
                             for task in processed_tasks:
-                                task_manager.add_task(task)
-                            tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
-                            st.success("Tasks added!")
-                            # Reset processing state
-                            st.session_state.processing_audio = False
-                            st.session_state.current_audio = None
-                            st.rerun()
-                else:
-                    # Command mode
-                    with st.spinner("Processing command..."):
-                        current_tasks = task_manager.get_tasks()
-                        result = command_router.process_command(transcription, 'command', current_tasks)
-                        st.session_state.last_command_result = result
-                    
-                    # Display command result
+                                st.write(f"• {task}")
+                            
+                            if st.button("Add to Task List"):
+                                for task in processed_tasks:
+                                    task_manager.add_task(task)
+                                tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
+                                st.success("Tasks added!")
+                                st.rerun()
+                    else:
+                        # Command mode
+                        with st.spinner("Processing command..."):
+                            current_tasks = task_manager.get_tasks()
+                            result = command_router.process_command(transcription, 'command', current_tasks)
+                            st.session_state.last_command_result = result
+                        
+                        # Display command result
+                        if result['action_taken']:
+                            st.success(result['message'])
+                            tts_service.speak_confirmation('task_updated' if result['intent'] == 'modify' else 'task_added')
+                        elif result['intent'] == 'query':
+                            st.info(result['message'])
+                            tts_service.speak_query_response(result['message'])
+                        else:
+                            st.warning(result['message'])
+                            if result['confidence'] < 0.7:
+                                tts_service.speak_confirmation('low_confidence')
+                        
+                        # Show confidence score
+                        st.metric("Confidence", f"{result['confidence']:.1%}")
+                        st.rerun()
+            else:
+                # Show existing audio without reprocessing
+                st.audio(audio_value)
+                
+                # Show the last command result if available
+                if st.session_state.last_command_result:
+                    result = st.session_state.last_command_result
                     if result['action_taken']:
                         st.success(result['message'])
-                        tts_service.speak_confirmation('task_updated' if result['intent'] == 'modify' else 'task_added')
                     elif result['intent'] == 'query':
                         st.info(result['message'])
-                        tts_service.speak_query_response(result['message'])
                     else:
                         st.warning(result['message'])
-                        if result['confidence'] < 0.7:
-                            tts_service.speak_confirmation('low_confidence')
                     
-                    # Show confidence score
-                    st.metric("Confidence", f"{result['confidence']:.1%}")
-                    
-                    # Reset processing state
-                    st.session_state.processing_audio = False
-                    st.session_state.current_audio = None
-                    st.rerun()
-        
-        # If we have processed audio, show it without reprocessing
-        elif st.session_state.current_audio and st.session_state.processing_audio:
-            st.audio(st.session_state.current_audio)
-            st.success("Transcribed!")
-            
-            # Show the last command result if available
-            if st.session_state.last_command_result:
-                result = st.session_state.last_command_result
-                if result['action_taken']:
-                    st.success(result['message'])
-                elif result['intent'] == 'query':
-                    st.info(result['message'])
-                else:
-                    st.warning(result['message'])
-                
-                if 'confidence' in result:
-                    st.metric("Confidence", f"{result['confidence']:.1%}")
+                    if 'confidence' in result:
+                        st.metric("Confidence", f"{result['confidence']:.1%}")
         
         st.divider()
         
