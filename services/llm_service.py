@@ -7,26 +7,32 @@ class LLMService:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"  # Cost-effective model
     
-    def process_braindump(self, raw_text: str) -> List[str]:
+    def process_braindump(self, raw_text: str) -> List[Dict[str, Any]]:
         """
-        Process raw braindump text into organized, actionable tasks
+        Process raw braindump text into organized, actionable tasks with priority and category
         """
         try:
             prompt = """
-            You are a task organization assistant. Convert the following brain dump into a clean, organized list of actionable tasks.
-            
+            You are a task organization assistant. Convert the following brain dump into a clean, organized list of actionable tasks with priority and category.
+
             Rules:
             - Extract clear, actionable tasks
             - Remove filler words and make tasks concise
             - Group related items if appropriate
             - Each task should be self-contained and clear
-            - Return as a JSON array of strings
-            
+            - Assign priority (high/medium/low) based on urgency and importance
+            - Assign category (client/business/personal) based on context
+            - Return as a JSON array of task objects
+
             Brain dump:
             {text}
-            
-            Return ONLY a JSON array of task strings, no additional text.
-            Example: ["Task 1", "Task 2", "Task 3"]
+
+            Return ONLY a JSON array of task objects, no additional text.
+            Example: [
+                {{"text": "Review quarterly report", "priority": "high", "category": "business"}},
+                {{"text": "Call client about project", "priority": "medium", "category": "client"}},
+                {{"text": "Schedule team meeting", "priority": "low", "category": "personal"}}
+            ]
             """.format(text=raw_text)
             
             response = self.client.chat.completions.create(
@@ -43,12 +49,32 @@ class LLMService:
             
             # Parse JSON response
             tasks = json.loads(result)
-            return tasks if isinstance(tasks, list) else []
+            
+            # Ensure we have a list of dictionaries
+            if isinstance(tasks, list):
+                # Convert string tasks to dict format for backward compatibility
+                structured_tasks = []
+                for task in tasks:
+                    if isinstance(task, str):
+                        structured_tasks.append({
+                            "text": task,
+                            "priority": "medium",
+                            "category": None
+                        })
+                    elif isinstance(task, dict):
+                        structured_tasks.append({
+                            "text": task.get("text", ""),
+                            "priority": task.get("priority", "medium"),
+                            "category": task.get("category")
+                        })
+                return structured_tasks
+            else:
+                return []
             
         except Exception as e:
             print(f"LLM processing error: {e}")
             # Fallback: return the raw text as a single task
-            return [raw_text] if raw_text else []
+            return [{"text": raw_text, "priority": "medium", "category": None}] if raw_text else []
     
     def detect_intent(self, transcription: str, current_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

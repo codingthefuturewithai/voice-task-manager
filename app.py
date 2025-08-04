@@ -134,6 +134,8 @@ def main():
         st.session_state.mode = 'braindump'
     if 'last_command_result' not in st.session_state:
         st.session_state.last_command_result = None
+    if 'last_mode' not in st.session_state:
+        st.session_state.last_mode = 'braindump'
     
     # Mode selector
     st.subheader("🎯 Mode Selection")
@@ -147,6 +149,14 @@ def main():
     
     # Update session state
     st.session_state.mode = 'braindump' if mode == "🧠 Brain Dump" else 'command'
+    
+    # Clear audio state if mode changed
+    if st.session_state.last_mode != st.session_state.mode:
+        st.session_state.last_audio_hash = None
+        st.session_state.processed_tasks = None
+        st.session_state.transcription = None
+        st.session_state.last_command_result = None
+        st.session_state.last_mode = st.session_state.mode
     
     col1, col2 = st.columns([1, 2])
     
@@ -202,11 +212,21 @@ def main():
                         if processed_tasks:
                             st.info("AI Processed Tasks:")
                             for task in processed_tasks:
-                                st.write(f"• {task}")
+                                priority_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task.get('priority', 'medium'), '⚪')
+                                category_emoji = {"client": "👤", "business": "💼", "personal": "🏠"}.get(task.get('category'), '📝')
+                                st.write(f"• {priority_emoji} {category_emoji} {task.get('text', task)}")
                             
                             if st.button("Add to Task List"):
                                 for task in processed_tasks:
-                                    task_manager.add_task(task, priority='medium', category=None)
+                                    if isinstance(task, dict):
+                                        task_manager.add_task(
+                                            task.get('text', ''),
+                                            priority=task.get('priority', 'medium'),
+                                            category=task.get('category')
+                                        )
+                                    else:
+                                        # Fallback for string tasks
+                                        task_manager.add_task(task, priority='medium', category=None)
                                 tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
                                 st.success("Tasks added!")
                                 # Clear the processed tasks after adding
@@ -239,8 +259,8 @@ def main():
                         st.session_state.transcription = None
                         st.session_state.last_audio_hash = None
             else:
-                # Show existing audio without reprocessing
-                st.audio(audio_value)
+                # Show existing audio without reprocessing (but don't duplicate the audio widget)
+                # Only show the processed results, not the audio widget again
                 
                 # Show the last command result if available
                 if st.session_state.last_command_result:
@@ -259,11 +279,21 @@ def main():
                 if st.session_state.processed_tasks:
                     st.info("AI Processed Tasks:")
                     for task in st.session_state.processed_tasks:
-                        st.write(f"• {task}")
+                        priority_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task.get('priority', 'medium'), '⚪')
+                        category_emoji = {"client": "👤", "business": "💼", "personal": "🏠"}.get(task.get('category'), '📝')
+                        st.write(f"• {priority_emoji} {category_emoji} {task.get('text', task)}")
                     
                     if st.button("Add to Task List"):
                         for task in st.session_state.processed_tasks:
-                            task_manager.add_task(task, priority='medium', category=None)
+                            if isinstance(task, dict):
+                                task_manager.add_task(
+                                    task.get('text', ''),
+                                    priority=task.get('priority', 'medium'),
+                                    category=task.get('category')
+                                )
+                            else:
+                                # Fallback for string tasks
+                                task_manager.add_task(task, priority='medium', category=None)
                         tts_service.speak_confirmation('task_added', f"Added {len(st.session_state.processed_tasks)} tasks")
                         st.success("Tasks added!")
                         # Clear the processed tasks after adding
