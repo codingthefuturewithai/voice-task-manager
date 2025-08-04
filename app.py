@@ -132,10 +132,16 @@ def main():
     # Initialize session state
     if 'mode' not in st.session_state:
         st.session_state.mode = 'braindump'
-    if 'last_command_result' not in st.session_state:
-        st.session_state.last_command_result = None
     if 'last_mode' not in st.session_state:
         st.session_state.last_mode = 'braindump'
+    if 'current_audio_hash' not in st.session_state:
+        st.session_state.current_audio_hash = None
+    if 'processed_tasks' not in st.session_state:
+        st.session_state.processed_tasks = None
+    if 'transcription' not in st.session_state:
+        st.session_state.transcription = None
+    if 'last_command_result' not in st.session_state:
+        st.session_state.last_command_result = None
     
     # Mode selector
     st.subheader("🎯 Mode Selection")
@@ -152,11 +158,10 @@ def main():
     
     # Clear audio state if mode changed
     if st.session_state.last_mode != st.session_state.mode:
-        st.session_state.last_audio_hash = None
+        st.session_state.current_audio_hash = None
         st.session_state.processed_tasks = None
         st.session_state.transcription = None
         st.session_state.last_command_result = None
-        st.session_state.audio_processed = False
         st.session_state.last_mode = st.session_state.mode
     
     col1, col2 = st.columns([1, 2])
@@ -170,28 +175,17 @@ def main():
         else:
             st.info("🎯 **Command Mode**: Give specific commands like 'Add a task to review documentation' or 'Mark the first task as complete'.")
         
-        # Audio input - only process new audio
+        # Audio input
         audio_value = st.audio_input("Click to record your voice")
         
-        # Store audio hash to detect new recordings
-        if 'last_audio_hash' not in st.session_state:
-            st.session_state.last_audio_hash = None
-        if 'processed_tasks' not in st.session_state:
-            st.session_state.processed_tasks = None
-        if 'transcription' not in st.session_state:
-            st.session_state.transcription = None
-        if 'audio_processed' not in st.session_state:
-            st.session_state.audio_processed = False
-        
-        # Check if we have new audio input
-        if audio_value and not st.session_state.audio_processed:
-            # Create a simple hash of the audio to detect changes
-            audio_hash = hash(str(audio_value.name) + str(audio_value.size))
+        # Process audio only if we have new audio
+        if audio_value:
+            # Create hash of current audio
+            current_hash = hash(str(audio_value.name) + str(audio_value.size))
             
             # Only process if this is new audio
-            if audio_hash != st.session_state.last_audio_hash:
-                st.session_state.last_audio_hash = audio_hash
-                st.session_state.audio_processed = True
+            if current_hash != st.session_state.current_audio_hash:
+                st.session_state.current_audio_hash = current_hash
                 
                 # Display the recorded audio
                 st.audio(audio_value)
@@ -220,7 +214,7 @@ def main():
                                 category_emoji = {"client": "👤", "business": "💼", "personal": "🏠"}.get(task.get('category'), '📝')
                                 st.write(f"• {priority_emoji} {category_emoji} {task.get('text', task)}")
                             
-                            if st.button("Add to Task List", key="add_tasks_new"):
+                            if st.button("Add to Task List", key="add_tasks"):
                                 for task in processed_tasks:
                                     if isinstance(task, dict):
                                         task_manager.add_task(
@@ -236,8 +230,7 @@ def main():
                                 # Clear the processed tasks after adding
                                 st.session_state.processed_tasks = None
                                 st.session_state.transcription = None
-                                st.session_state.last_audio_hash = None
-                                st.session_state.audio_processed = False
+                                st.session_state.current_audio_hash = None
                     else:
                         # Command mode
                         with st.spinner("Processing command..."):
@@ -262,57 +255,14 @@ def main():
                         
                         # Clear audio state after processing
                         st.session_state.transcription = None
-                        st.session_state.last_audio_hash = None
-                        st.session_state.audio_processed = False
+                        st.session_state.current_audio_hash = None
         
-        # Show existing results (separate from audio processing)
+        # Show clear results button if we have results
         if st.session_state.processed_tasks or st.session_state.last_command_result:
-            # Show the last command result if available
-            if st.session_state.last_command_result:
-                result = st.session_state.last_command_result
-                if result['action_taken']:
-                    st.success(result['message'])
-                elif result['intent'] == 'query':
-                    st.info(result['message'])
-                else:
-                    st.warning(result['message'])
-                
-                if 'confidence' in result:
-                    st.metric("Confidence", f"{result['confidence']:.1%}")
-            
-            # Show processed tasks if available (for brain dump mode)
-            if st.session_state.processed_tasks:
-                st.info("AI Processed Tasks:")
-                for task in st.session_state.processed_tasks:
-                    priority_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(task.get('priority', 'medium'), '⚪')
-                    category_emoji = {"client": "👤", "business": "💼", "personal": "🏠"}.get(task.get('category'), '📝')
-                    st.write(f"• {priority_emoji} {category_emoji} {task.get('text', task)}")
-                
-                if st.button("Add to Task List", key="add_tasks_existing"):
-                    for task in st.session_state.processed_tasks:
-                        if isinstance(task, dict):
-                            task_manager.add_task(
-                                task.get('text', ''),
-                                priority=task.get('priority', 'medium'),
-                                category=task.get('category')
-                            )
-                        else:
-                            # Fallback for string tasks
-                            task_manager.add_task(task, priority='medium', category=None)
-                    tts_service.speak_confirmation('task_added', f"Added {len(st.session_state.processed_tasks)} tasks")
-                    st.success("Tasks added!")
-                    # Clear the processed tasks after adding
-                    st.session_state.processed_tasks = None
-                    st.session_state.transcription = None
-                    st.session_state.last_audio_hash = None
-                    st.session_state.audio_processed = False
-            
-            # Add a clear results button
             if st.button("Clear Results", key="clear_results"):
                 st.session_state.processed_tasks = None
                 st.session_state.transcription = None
-                st.session_state.last_audio_hash = None
-                st.session_state.audio_processed = False
+                st.session_state.current_audio_hash = None
                 st.session_state.last_command_result = None
                 st.success("Results cleared!")
         
