@@ -37,7 +37,7 @@ def init_services():
     return whisper, llm, task_manager, command_router, tts_service, task_matcher
 
 def render_task(task, task_manager, tts_service):
-    """Render a single task with enhanced UI"""
+    """Render a single task with enhanced UI and editing capabilities"""
     priority_colors = {
         'high': '🔴',
         'medium': '🟡', 
@@ -48,6 +48,11 @@ def render_task(task, task_manager, tts_service):
         'business': '💼',
         'personal': '🏠'
     }
+    
+    # Initialize session state for editing
+    edit_key = f"edit_{task['id']}"
+    if edit_key not in st.session_state:
+        st.session_state[edit_key] = False
     
     col_check, col_priority, col_task, col_category, col_delete = st.columns([1, 1, 6, 1, 1])
     
@@ -62,10 +67,31 @@ def render_task(task, task_manager, tts_service):
         st.write(priority_emoji)
     
     with col_task:
-        if task["completed"]:
-            st.markdown(f"~~{task['text']}~~")
+        if st.session_state[edit_key]:
+            # Edit mode
+            new_text = st.text_input("Edit task:", value=task['text'], key=f"text_{task['id']}")
+            col_save, col_cancel = st.columns(2)
+            with col_save:
+                if st.button("💾", key=f"save_{task['id']}"):
+                    task_manager.update_task(task['id'], text=new_text)
+                    st.session_state[edit_key] = False
+                    tts_service.speak_confirmation('task_updated')
+                    st.rerun()
+            with col_cancel:
+                if st.button("❌", key=f"cancel_{task['id']}"):
+                    st.session_state[edit_key] = False
+                    st.rerun()
         else:
-            st.markdown(task['text'])
+            # Display mode
+            if task["completed"]:
+                st.markdown(f"~~{task['text']}~~")
+            else:
+                st.markdown(task['text'])
+            
+            # Edit button
+            if st.button("✏️", key=f"edit_btn_{task['id']}"):
+                st.session_state[edit_key] = True
+                st.rerun()
     
     with col_category:
         if task.get('category'):
@@ -112,6 +138,10 @@ def main():
         st.session_state.mode = 'braindump'
     if 'last_command_result' not in st.session_state:
         st.session_state.last_command_result = None
+    if 'processing_audio' not in st.session_state:
+        st.session_state.processing_audio = False
+    if 'current_audio' not in st.session_state:
+        st.session_state.current_audio = None
     
     # Mode selector
     st.subheader("🎯 Mode Selection")
@@ -137,9 +167,14 @@ def main():
         else:
             st.info("🎯 **Command Mode**: Give specific commands like 'Add a task to review documentation' or 'Mark the first task as complete'.")
         
+        # Only process audio if we have new audio input
         audio_value = st.audio_input("Click to record your voice")
         
-        if audio_value:
+        # Check if we have new audio (not just a rerun)
+        if audio_value and not st.session_state.processing_audio:
+            st.session_state.processing_audio = True
+            st.session_state.current_audio = audio_value
+            
             # Display the recorded audio
             st.audio(audio_value)
             
@@ -168,6 +203,9 @@ def main():
                                 task_manager.add_task(task)
                             tts_service.speak_confirmation('task_added', f"Added {len(processed_tasks)} tasks")
                             st.success("Tasks added!")
+                            # Reset processing state
+                            st.session_state.processing_audio = False
+                            st.session_state.current_audio = None
                             st.rerun()
                 else:
                     # Command mode
@@ -189,6 +227,29 @@ def main():
                             tts_service.speak_confirmation('low_confidence')
                     
                     # Show confidence score
+                    st.metric("Confidence", f"{result['confidence']:.1%}")
+                    
+                    # Reset processing state
+                    st.session_state.processing_audio = False
+                    st.session_state.current_audio = None
+                    st.rerun()
+        
+        # If we have processed audio, show it without reprocessing
+        elif st.session_state.current_audio and st.session_state.processing_audio:
+            st.audio(st.session_state.current_audio)
+            st.success("Transcribed!")
+            
+            # Show the last command result if available
+            if st.session_state.last_command_result:
+                result = st.session_state.last_command_result
+                if result['action_taken']:
+                    st.success(result['message'])
+                elif result['intent'] == 'query':
+                    st.info(result['message'])
+                else:
+                    st.warning(result['message'])
+                
+                if 'confidence' in result:
                     st.metric("Confidence", f"{result['confidence']:.1%}")
         
         st.divider()
