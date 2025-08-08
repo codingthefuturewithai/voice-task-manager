@@ -11,6 +11,7 @@ from services.task_manager import TaskManager
 from services.command_router import CommandRouter
 from services.tts_service import TTSService
 from services.task_matcher import TaskMatcher
+from services.help_service import HelpService
 
 load_dotenv()
 
@@ -33,8 +34,9 @@ def init_services():
     command_router = CommandRouter(llm, task_manager)
     tts_service = TTSService()
     task_matcher = TaskMatcher()
+    help_service = HelpService(llm)
     
-    return whisper, llm, task_manager, command_router, tts_service, task_matcher
+    return whisper, llm, task_manager, command_router, tts_service, task_matcher, help_service
 
 def render_task(task, task_manager, tts_service):
     """Render a single task with enhanced UI and editing capabilities"""
@@ -137,7 +139,7 @@ def main():
     st.title("🎤 Voice Task Manager")
     st.markdown("Speak to manage your tasks - braindump, organize, and track!")
     
-    whisper, llm, task_manager, command_router, tts_service, task_matcher = init_services()
+    whisper, llm, task_manager, command_router, tts_service, task_matcher, help_service = init_services()
     
     # Initialize session state
     if 'mode' not in st.session_state:
@@ -158,11 +160,129 @@ def main():
     if 'last_command_result' not in st.session_state:
         st.session_state.last_command_result = None
         print(f"DEBUG: Initialized last_command_result to None")
+    if 'help_panel_open' not in st.session_state:
+        st.session_state.help_panel_open = False
+        print(f"DEBUG: Initialized help_panel_open to False")
+    if 'help_question' not in st.session_state:
+        st.session_state.help_question = ""
+        print(f"DEBUG: Initialized help_question to empty string")
+    if 'help_response' not in st.session_state:
+        st.session_state.help_response = ""
+        print(f"DEBUG: Initialized help_response to empty string")
+    if 'help_input_counter' not in st.session_state:
+        st.session_state.help_input_counter = 0
+        print(f"DEBUG: Initialized help_input_counter to 0")
+    if 'help_processing_disabled' not in st.session_state:
+        st.session_state.help_processing_disabled = False
+        print(f"DEBUG: Initialized help_processing_disabled to False")
     
     print(f"DEBUG: Current mode: {st.session_state.mode}")
     print(f"DEBUG: Current audio hash: {st.session_state.current_audio_hash}")
     print(f"DEBUG: Has processed tasks: {st.session_state.processed_tasks is not None}")
     print(f"DEBUG: Has transcription: {st.session_state.transcription is not None}")
+    
+    # Help Panel in Sidebar
+    with st.sidebar:
+        st.header("❓ Help & Assistance")
+        
+        # Help panel toggle
+        help_status = "🟢 Active" if st.session_state.help_panel_open else "⚪ Inactive"
+        if st.button(f"🔧 Toggle Help Panel ({help_status})", key="toggle_help"):
+            st.session_state.help_panel_open = not st.session_state.help_panel_open
+            st.rerun()
+        
+        # Help panel content
+        if st.session_state.help_panel_open:
+            with st.expander("🤖 AI Assistant", expanded=True):
+                st.markdown("Ask me anything about using the Voice Task Manager!")
+                
+                # Status indicator
+                if st.session_state.help_response:
+                    st.success("✅ Response ready")
+                elif st.session_state.help_question:
+                    st.info("🤔 Processing...")
+                else:
+                    st.info("💡 Ready for questions")
+                
+                # Voice input for help
+                help_audio = st.audio_input("🎤 Ask with voice", key="help_audio")
+                
+                # Track if we need to process a new question
+                should_process_question = False
+                
+                if help_audio:
+                    print(f"DEBUG: Help audio detected")
+                    # Process help voice input
+                    help_audio_bytes = help_audio.read()
+                    with st.spinner("Processing your question..."):
+                        help_transcription = whisper.transcribe(help_audio_bytes)
+                    
+                    if help_transcription:
+                        print(f"DEBUG: Help transcription: {help_transcription}")
+                        st.session_state.help_question = help_transcription
+                        should_process_question = True
+                        st.text_area("Your question:", help_transcription, height=60)
+                
+                # Text input for help
+                help_question = st.text_input(
+                    "💬 Or type your question:",
+                    value=st.session_state.help_question,
+                    key=f"help_text_input_{st.session_state.help_input_counter}",
+                    placeholder="e.g., 'How do I add a task?' or 'What commands can I use?'",
+                    help="Type your question here or use voice input above"
+                )
+                
+                # Display help response
+                if st.session_state.help_response:
+                    st.markdown("**Answer:**")
+                    st.markdown(st.session_state.help_response)
+                    
+                    # Action buttons row
+                    col_clear, col_reset = st.columns(2)
+                    
+                    with col_clear:
+                        if st.button("Clear Answer", key="clear_help"):
+                            st.session_state.help_response = ""
+                            st.session_state.help_processing_disabled = False
+                            st.rerun()
+                    
+                    with col_reset:
+                        if st.button("Reset All", key="reset_help"):
+                            st.session_state.help_response = ""
+                            st.session_state.help_question = ""
+                            st.session_state.help_input_counter += 1
+                            st.session_state.help_processing_disabled = False
+                            st.rerun()
+                
+                # Process help question (either from voice or text input)
+                # Only process if we have a new question from voice OR if text input changed AND is not empty
+                # AND we don't have a response already (to prevent reprocessing)
+                # AND processing is not disabled
+                if (not st.session_state.help_response and 
+                    not st.session_state.help_processing_disabled and
+                    (should_process_question or (help_question and help_question != st.session_state.help_question and help_question.strip()))):
+                    
+                    if help_question and help_question != st.session_state.help_question:
+                        st.session_state.help_question = help_question
+                    
+                    print(f"DEBUG: Processing help question: {st.session_state.help_question}")
+                    current_tasks = task_manager.get_tasks()
+                    
+                    with st.spinner("Getting help..."):
+                        help_response = help_service.get_help_response(st.session_state.help_question, current_tasks)
+                        st.session_state.help_response = help_response
+                        st.session_state.help_processing_disabled = True
+                        print(f"DEBUG: Help response generated: {len(help_response)} characters")
+                
+                # Quick reference
+                with st.expander("📋 Quick Reference"):
+                    st.markdown(help_service.get_quick_reference())
+                
+                # Contextual suggestions
+                current_tasks = task_manager.get_tasks()
+                suggestions = help_service.get_contextual_suggestions(current_tasks)
+                with st.expander("💡 Suggestions"):
+                    st.markdown(suggestions)
     
     # Mode selector
     st.subheader("🎯 Mode Selection")

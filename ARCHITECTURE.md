@@ -108,6 +108,20 @@ graph TB
   - Multiple match detection
   - Configurable similarity thresholds
 
+#### Help Service (`services/help_service.py`)
+- **Purpose**: AI-powered help system with dynamic assistance
+- **Capabilities**:
+  - Context-aware help responses
+  - Voice and text question processing
+  - Knowledge base integration
+  - Task-aware suggestions
+  - Quick reference generation
+- **Features**:
+  - Tutorial-style guidance
+  - Command reference
+  - Contextual tips based on current tasks
+  - Voice input support for help questions
+
 ### 3. Data Layer
 
 #### Task Storage (`tasks.json`)
@@ -125,6 +139,15 @@ graph TB
   "completed_at": "ISO timestamp|null"
 }
 ```
+
+#### Help Knowledge Base (`help_knowledge.md`)
+- **Format**: Markdown documentation
+- **Content**:
+  - Tutorial information
+  - Command reference
+  - Usage tips and best practices
+  - Troubleshooting guide
+  - Feature explanations
 
 ## System Interactions
 
@@ -204,6 +227,38 @@ sequenceDiagram
     CR-->>UI: {action_taken: true, message: "Updated task category"}
     UI->>TTS: Speak Success Message
     TTS-->>U: "Updated task category to client"
+```
+
+### 4. Help System Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as Streamlit UI
+    participant HS as Help Service
+    participant WS as Whisper Service
+    participant LS as LLM Service
+    participant KB as Knowledge Base
+    participant TM as Task Manager
+    
+    U->>UI: Open Help Panel
+    UI->>UI: Show Help Interface
+    
+    alt Voice Help Question
+        U->>UI: Record Voice Question
+        UI->>WS: Transcribe Audio
+        WS-->>UI: Question Text
+    else Text Help Question
+        U->>UI: Type Question
+    end
+    
+    UI->>HS: Process Help Question
+    HS->>KB: Load Knowledge Base
+    HS->>TM: Get Current Tasks
+    HS->>LS: Generate Help Response
+    LS-->>HS: AI Response
+    HS-->>UI: Formatted Help Response
+    UI-->>U: Display Help Answer
 ```
 
 ## Data Flow Architecture

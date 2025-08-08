@@ -29,6 +29,13 @@ A powerful, AI-driven task management application that lets you manage your task
 - **Query responses**: Get spoken answers to your questions
 - **Error handling**: Voice feedback for low-confidence commands
 
+### ❓ AI-Powered Help System
+- **Dynamic assistance**: Ask questions about using the app
+- **Voice and text input**: Get help through voice or typing
+- **Context-aware suggestions**: Receive personalized tips based on your tasks
+- **Quick reference**: Always-available command reference
+- **Tutorial guidance**: Step-by-step help for new users
+
 ### 📈 Advanced Statistics
 - Comprehensive task breakdown by priority and category
 - Completion tracking and progress metrics
@@ -71,6 +78,20 @@ A powerful, AI-driven task management application that lets you manage your task
    ```
 
 ## 🎤 Usage Guide
+
+### Getting Help
+The Voice Task Manager includes an AI-powered help system:
+
+1. **Access Help**: Click "🔧 Toggle Help Panel" in the sidebar
+2. **Ask Questions**: Use voice or text to ask about features
+3. **Get Suggestions**: View contextual tips based on your current tasks
+4. **Quick Reference**: Access command reference anytime
+
+**Example Help Questions:**
+- "How do I add a task?"
+- "What commands can I use?"
+- "How do I change task priority?"
+- "What should I work on next?"
 
 ### Brain Dump Mode (Default)
 Perfect for capturing multiple tasks at once:
@@ -148,6 +169,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 - **CommandRouter**: Routes voice commands to appropriate handlers
 - **TTSService**: Provides voice feedback
 - **TaskMatcher**: Fuzzy matching for natural language task references
+- **HelpService**: AI-powered help system with knowledge base
 
 ### Data Model
 ```json
