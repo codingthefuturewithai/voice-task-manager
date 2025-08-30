@@ -1,0 +1,323 @@
+{
+  "application": {
+    "name": "Voice Task Manager",
+    "description": "A voice-controlled task management application using AI",
+    "version": "2.0",
+    "url": "http://localhost:8502"
+  },
+  "layout": {
+    "structure": "Two-column layout with sidebar",
+    "sidebar": {
+      "location": "Left side of screen",
+      "collapsible": true,
+      "contains": "Help & Assistance panel"
+    },
+    "main_area": {
+      "columns": ["Voice Input (left, 1/3 width)", "Task List (right, 2/3 width)"]
+    }
+  },
+  "ui_elements": {
+    "sidebar": {
+      "help_panel": {
+        "name": "Help & Assistance",
+        "location": "Left sidebar",
+        "icon": "❓",
+        "description": "AI-powered help system for the application",
+        "components": {
+          "status_indicators": {
+            "type": "status_display",
+            "shows": ["✅ Response ready", "🤔 Processing...", "💡 Ready for questions"],
+            "location": "Top of help panel"
+          },
+          "voice_input": {
+            "type": "audio_input",
+            "label": "🎤 Ask with voice",
+            "description": "Click to record a voice question for the AI assistant",
+            "location": "Below status indicators"
+          },
+          "text_input": {
+            "type": "text_input",
+            "label": "💬 Or type your question",
+            "placeholder": "e.g., 'How do I add a task?' or 'What commands can I use?'",
+            "location": "Below voice input"
+          },
+          "answer_display": {
+            "type": "markdown_display",
+            "label": "Answer:",
+            "description": "Shows AI-generated help responses",
+            "location": "Below text input when response is available"
+          },
+          "action_buttons": {
+            "clear_answer": {
+              "type": "button",
+              "label": "Clear Answer",
+              "action": "Clears the current help response",
+              "location": "Below answer display"
+            },
+            "reset_all": {
+              "type": "button",
+              "label": "Reset All",
+              "action": "Clears both question and answer",
+              "location": "Next to Clear Answer button"
+            }
+          },
+          "quick_reference": {
+            "type": "expandable_section",
+            "label": "📋 Quick Reference",
+            "contains": "List of common voice commands",
+            "location": "Bottom of help panel"
+          },
+          "suggestions": {
+            "type": "expandable_section",
+            "label": "💡 Suggestions",
+            "contains": "Context-aware suggestions based on current tasks",
+            "location": "Below Quick Reference"
+          }
+        }
+      }
+    },
+    "main_content": {
+      "mode_selector": {
+        "name": "Mode Selection",
+        "type": "radio_buttons",
+        "location": "Top of main content area",
+        "label": "🎯 Mode Selection",
+        "options": [
+          {
+            "value": "braindump",
+            "label": "🧠 Brain Dump",
+            "description": "Extract multiple tasks from free-form speech",
+            "default": true
+          },
+          {
+            "value": "command",
+            "label": "🎯 Command",
+            "description": "Execute specific actions on existing tasks"
+          }
+        ],
+        "behavior": "Switching modes clears the current audio processing state"
+      },
+      "left_column": {
+        "name": "Voice Input",
+        "width": "1/3 of main area",
+        "components": {
+          "header": {
+            "type": "header",
+            "text": "🎤 Voice Input",
+            "location": "Top of left column"
+          },
+          "mode_instructions": {
+            "type": "info_box",
+            "dynamic": true,
+            "braindump_mode": "🧠 Brain Dump Mode: Speak freely about multiple tasks and ideas. I'll extract and organize them for you.",
+            "command_mode": "🎯 Command Mode: Give specific commands like 'Add a task to review documentation' or 'Mark the first task as complete'.",
+            "location": "Below header"
+          },
+          "audio_recorder": {
+            "type": "audio_input",
+            "label": "Click to record your voice",
+            "location": "Below mode instructions",
+            "behavior": "Records audio until user stops, then automatically processes based on current mode"
+          },
+          "audio_playback": {
+            "type": "audio_player",
+            "appears": "After recording completes",
+            "location": "Below audio recorder"
+          },
+          "transcription_display": {
+            "type": "text_area",
+            "label": "Raw Transcription:",
+            "height": 100,
+            "appears": "After transcription completes",
+            "location": "Below audio playback"
+          },
+          "processed_tasks_display": {
+            "type": "task_list",
+            "label": "AI Processed Tasks:",
+            "appears": "In Brain Dump mode after processing",
+            "shows": "List of extracted tasks with priority and category indicators",
+            "location": "Below transcription"
+          },
+          "command_result": {
+            "type": "status_message",
+            "appears": "In Command mode after processing",
+            "types": ["success", "info", "warning"],
+            "location": "Below transcription"
+          },
+          "confidence_metric": {
+            "type": "metric",
+            "label": "Confidence",
+            "appears": "In Command mode",
+            "format": "percentage",
+            "location": "Below command result"
+          },
+          "add_tasks_button": {
+            "type": "button",
+            "label": "Add to Task List",
+            "appears": "In Brain Dump mode when tasks are processed",
+            "action": "Adds all processed tasks to the task list",
+            "location": "Below processed tasks display"
+          },
+          "confirmation_dialog": {
+            "type": "confirmation",
+            "appears": "For destructive operations in Command mode",
+            "buttons": ["✅ Confirm", "❌ Cancel"],
+            "location": "Below command result"
+          },
+          "clear_all_button": {
+            "type": "button",
+            "label": "Clear All Tasks",
+            "style": "secondary",
+            "action": "Removes all tasks from the list",
+            "location": "Bottom of left column",
+            "requires_confirmation": true
+          }
+        }
+      },
+      "right_column": {
+        "name": "Task List",
+        "width": "2/3 of main area",
+        "components": {
+          "header": {
+            "type": "header",
+            "text": "📋 Task List",
+            "location": "Top of right column"
+          },
+          "empty_state": {
+            "type": "info_message",
+            "text": "No tasks yet. Start speaking to add some!",
+            "appears": "When task list is empty",
+            "location": "Below header"
+          },
+          "task_item": {
+            "type": "composite_component",
+            "repeats": "For each task",
+            "layout": "5 columns",
+            "components": {
+              "checkbox": {
+                "column": 1,
+                "width": "1/10",
+                "type": "checkbox",
+                "label": "Done (hidden)",
+                "action": "Toggles task completion status",
+                "visual": "Checkbox that can be checked/unchecked"
+              },
+              "priority_indicator": {
+                "column": 2,
+                "width": "1/10",
+                "type": "emoji_display",
+                "values": {
+                  "high": "🔴",
+                  "medium": "🟡",
+                  "low": "🟢"
+                },
+                "description": "Shows task priority level"
+              },
+              "task_text": {
+                "column": 3,
+                "width": "6/10",
+                "type": "text_display_or_input",
+                "states": {
+                  "display": {
+                    "completed": "Strikethrough text (~~text~~)",
+                    "pending": "Normal text"
+                  },
+                  "edit": {
+                    "type": "text_input",
+                    "label": "Edit task:",
+                    "buttons": ["💾 Save", "❌ Cancel"]
+                  }
+                },
+                "edit_button": {
+                  "type": "button",
+                  "label": "✏️",
+                  "action": "Enters edit mode for the task"
+                }
+              },
+              "category_indicator": {
+                "column": 4,
+                "width": "1/10",
+                "type": "emoji_display",
+                "values": {
+                  "client": "👤",
+                  "business": "💼",
+                  "personal": "🏠",
+                  "none": "(empty)"
+                },
+                "description": "Shows task category"
+              },
+              "delete_button": {
+                "column": 5,
+                "width": "1/10",
+                "type": "button",
+                "label": "🗑️",
+                "action": "Deletes the task",
+                "requires_confirmation": false
+              }
+            }
+          },
+          "statistics": {
+            "type": "metrics_display",
+            "location": "Bottom of task list",
+            "shows": {
+              "total_tasks": {
+                "label": "Total Tasks",
+                "type": "number"
+              },
+              "completed": {
+                "label": "Completed",
+                "type": "number",
+                "layout": "left half"
+              },
+              "pending": {
+                "label": "Pending",
+                "type": "number",
+                "layout": "right half"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "interactions": {
+    "voice_commands": {
+      "brain_dump_mode": {
+        "description": "User speaks freely, system extracts multiple tasks",
+        "example": "I need to review the documentation, call the client about the project, and prepare for tomorrow's meeting"
+      },
+      "command_mode": {
+        "add": "Add a task to [description]",
+        "complete": "Mark [task reference] as complete/done",
+        "modify": "Change [task reference] to [new description]",
+        "delete": "Delete/Remove [task reference]",
+        "query": "Show me [filter criteria]",
+        "prioritize": "Set priority to high/medium/low"
+      }
+    },
+    "task_references": {
+      "description": "How users can refer to tasks in commands",
+      "methods": [
+        "Natural language: 'the documentation task'",
+        "Position: 'the first task', 'the last one'",
+        "Keywords: 'the one about testing'"
+      ]
+    },
+    "visual_feedback": {
+      "recording": "Microphone icon changes color during recording",
+      "processing": "Spinner shows during transcription and AI processing",
+      "success": "Green success messages for completed actions",
+      "errors": "Red error messages for failed operations"
+    }
+  },
+  "data_visibility": {
+    "task_properties": {
+      "visible": ["text", "priority", "category", "completion_status"],
+      "hidden": ["id", "created_at", "modified_at"]
+    },
+    "statistics": {
+      "always_visible": ["total", "completed", "pending"],
+      "contextual": ["high_priority_count", "category_breakdowns"]
+    }
+  }
+}

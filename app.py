@@ -220,8 +220,15 @@ def main():
                     if help_transcription:
                         print(f"DEBUG: Help transcription: {help_transcription}")
                         st.session_state.help_question = help_transcription
-                        should_process_question = True
                         st.text_area("Your question:", help_transcription, height=60)
+                        
+                        # Immediately process the voice question
+                        current_tasks = task_manager.get_tasks()
+                        with st.spinner("Getting help..."):
+                            help_response = help_service.get_help_response(help_transcription, current_tasks)
+                            st.session_state.help_response = help_response
+                            st.session_state.help_processing_disabled = True
+                            print(f"DEBUG: Help response generated from voice: {len(help_response)} characters")
                 
                 # Text input for help
                 help_question = st.text_input(
@@ -254,25 +261,23 @@ def main():
                             st.session_state.help_processing_disabled = False
                             st.rerun()
                 
-                # Process help question (either from voice or text input)
-                # Only process if we have a new question from voice OR if text input changed AND is not empty
-                # AND we don't have a response already (to prevent reprocessing)
-                # AND processing is not disabled
+                # Process text input only (voice is handled above)
+                # Only process if text changed AND is not empty AND we don't have a response
                 if (not st.session_state.help_response and 
                     not st.session_state.help_processing_disabled and
-                    (should_process_question or (help_question and help_question != st.session_state.help_question and help_question.strip()))):
+                    help_question and 
+                    help_question != st.session_state.help_question and 
+                    help_question.strip()):
                     
-                    if help_question and help_question != st.session_state.help_question:
-                        st.session_state.help_question = help_question
-                    
-                    print(f"DEBUG: Processing help question: {st.session_state.help_question}")
+                    st.session_state.help_question = help_question
+                    print(f"DEBUG: Processing typed help question: {help_question}")
                     current_tasks = task_manager.get_tasks()
                     
                     with st.spinner("Getting help..."):
-                        help_response = help_service.get_help_response(st.session_state.help_question, current_tasks)
+                        help_response = help_service.get_help_response(help_question, current_tasks)
                         st.session_state.help_response = help_response
                         st.session_state.help_processing_disabled = True
-                        print(f"DEBUG: Help response generated: {len(help_response)} characters")
+                        print(f"DEBUG: Help response generated from text: {len(help_response)} characters")
                 
                 # Quick reference
                 with st.expander("📋 Quick Reference"):

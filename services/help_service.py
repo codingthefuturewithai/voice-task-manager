@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 import os
 from pathlib import Path
+import json
 
 class HelpService:
     def __init__(self, llm_service):
@@ -12,6 +13,7 @@ class HelpService:
         """
         self.llm_service = llm_service
         self.knowledge_base = self._load_knowledge_base()
+        self.ui_reference = self._load_ui_reference()
     
     def _load_knowledge_base(self) -> str:
         """
@@ -24,6 +26,18 @@ class HelpService:
         except FileNotFoundError:
             print("Warning: help_knowledge.md not found, using fallback knowledge")
             return self._get_fallback_knowledge()
+    
+    def _load_ui_reference(self) -> dict:
+        """
+        Load the UI elements reference from the JSON file
+        """
+        try:
+            ref_path = Path(__file__).parent.parent / ".reference" / "ui_elements.json"
+            with open(ref_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print("Warning: ui_elements.json not found")
+            return {}
     
     def _get_fallback_knowledge(self) -> str:
         """
@@ -59,12 +73,17 @@ class HelpService:
             A helpful response string
         """
         try:
-            # Build context with knowledge base
+            # Build context with knowledge base and UI reference
+            ui_ref_str = json.dumps(self.ui_reference, indent=2) if self.ui_reference else ""
+            
             context = f"""
             You are a helpful assistant for the Voice Task Manager application. 
             Use the following knowledge base to answer user questions:
             
             {self.knowledge_base}
+            
+            UI Elements Reference (for precise location answers):
+            {ui_ref_str}
             
             Current application state:
             - Total tasks: {len(current_tasks) if current_tasks else 0}
