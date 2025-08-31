@@ -34,7 +34,19 @@ def init_services():
     command_router = CommandRouter(llm, task_manager)
     tts_service = TTSService()
     task_matcher = TaskMatcher()
-    help_service = HelpService(llm)
+    
+    # Try to initialize the agent service (optional enhancement)
+    agent_service = None
+    try:
+        from services.agent_service import AgentService
+        agent_service = AgentService(api_key, task_manager)
+        print("✅ Agent service initialized successfully")
+    except Exception as e:
+        print(f"ℹ️ Agent service not available (optional): {e}")
+        # Continue without agent - app works fine with existing functionality
+    
+    # Pass agent_service to HelpService (will use if available)
+    help_service = HelpService(llm, agent_service)
     
     return whisper, llm, task_manager, command_router, tts_service, task_matcher, help_service
 
@@ -56,14 +68,34 @@ def render_task(task, task_manager, tts_service):
     if edit_key not in st.session_state:
         st.session_state[edit_key] = False
     
+    # Callback functions that execute BEFORE rerun
+    def start_edit():
+        st.session_state[edit_key] = True
+    
+    def save_edit(task_id, new_text):
+        task_manager.update_task(task_id, text=new_text)
+        st.session_state[edit_key] = False
+    
+    def cancel_edit():
+        st.session_state[edit_key] = False
+    
+    def toggle_complete(task_id):
+        task_manager.toggle_task(task_id)
+    
+    def delete_task(task_id):
+        task_manager.delete_task(task_id)
+    
     col_check, col_priority, col_task, col_category, col_delete = st.columns([1, 1, 6, 1, 1])
     
     with col_check:
-        if st.checkbox("Done", value=task["completed"], key=f"check_{task['id']}", label_visibility="hidden"):
-            print(f"DEBUG: Checkbox clicked for task {task['id']}")
+        # Use checkbox without callback, check for state change manually
+        checkbox_key = f"check_{task['id']}"
+        is_checked = st.checkbox("Done", value=task["completed"], key=checkbox_key, 
+                                 label_visibility="hidden")
+        
+        # Only toggle if the state actually changed from what's in the database
+        if is_checked != task["completed"]:
             task_manager.toggle_task(task['id'])
-            tts_service.speak_confirmation('task_completed')
-            st.rerun()
     
     with col_priority:
         priority_emoji = priority_colors.get(task.get('priority', 'medium'), '⚪')
@@ -75,16 +107,10 @@ def render_task(task, task_manager, tts_service):
             new_text = st.text_input("Edit task:", value=task['text'], key=f"text_{task['id']}")
             col_save, col_cancel = st.columns(2)
             with col_save:
-                if st.button("💾", key=f"save_{task['id']}"):
-                    print(f"DEBUG: Save button clicked for task {task['id']}")
-                    task_manager.update_task(task['id'], text=new_text)
-                    st.session_state[edit_key] = False
-                    tts_service.speak_confirmation('task_updated')
-                    st.rerun()
+                st.button("💾", key=f"save_{task['id']}", on_click=save_edit, 
+                         args=(task['id'], new_text))
             with col_cancel:
-                if st.button("❌", key=f"cancel_{task['id']}"):
-                    print(f"DEBUG: Cancel button clicked for task {task['id']}")
-                    st.session_state[edit_key] = False
+                st.button("❌", key=f"cancel_{task['id']}", on_click=cancel_edit)
         else:
             # Display mode
             if task["completed"]:
@@ -92,10 +118,8 @@ def render_task(task, task_manager, tts_service):
             else:
                 st.markdown(task['text'])
             
-            # Edit button
-            if st.button("✏️", key=f"edit_btn_{task['id']}"):
-                print(f"DEBUG: Edit button clicked for task {task['id']}")
-                st.session_state[edit_key] = True
+            # Edit button with callback
+            st.button("✏️", key=f"edit_btn_{task['id']}", on_click=start_edit)
     
     with col_category:
         if task.get('category'):
@@ -105,11 +129,7 @@ def render_task(task, task_manager, tts_service):
             st.write("")
     
     with col_delete:
-        if st.button("🗑️", key=f"del_{task['id']}"):
-            print(f"DEBUG: Delete button clicked for task {task['id']} - {task['text']}")
-            task_manager.delete_task(task['id'])
-            tts_service.speak_confirmation('task_deleted')
-            st.rerun()
+        st.button("🗑️", key=f"del_{task['id']}", on_click=delete_task, args=(task['id'],))
 
 def render_stats(stats):
     """Render enhanced statistics"""
@@ -172,75 +192,35 @@ def main():
     if 'help_input_counter' not in st.session_state:
         st.session_state.help_input_counter = 0
         print(f"DEBUG: Initialized help_input_counter to 0")
-    if 'help_processing_disabled' not in st.session_state:
-        st.session_state.help_processing_disabled = False
-        print(f"DEBUG: Initialized help_processing_disabled to False")
+    if 'last_help_question_processed' not in st.session_state:
+        st.session_state.last_help_question_processed = None
+        print(f"DEBUG: Initialized last_help_question_processed to None")
+    if 'help_audio_version' not in st.session_state:
+        st.session_state.help_audio_version = 0
+        print(f"DEBUG: Initialized help_audio_version to 0")
     
     print(f"DEBUG: Current mode: {st.session_state.mode}")
     print(f"DEBUG: Current audio hash: {st.session_state.current_audio_hash}")
     print(f"DEBUG: Has processed tasks: {st.session_state.processed_tasks is not None}")
     print(f"DEBUG: Has transcription: {st.session_state.transcription is not None}")
     
-    # Help Panel in Sidebar
-    with st.sidebar:
+    # Help Panel in Sidebar - NOT a fragment because fragments still execute on full reruns
+    def render_help_panel():
         st.header("❓ Help & Assistance")
         
         # Help panel toggle
         help_status = "🟢 Active" if st.session_state.help_panel_open else "⚪ Inactive"
         if st.button(f"🔧 Toggle Help Panel ({help_status})", key="toggle_help"):
             st.session_state.help_panel_open = not st.session_state.help_panel_open
-            st.rerun()
         
         # Help panel content
         if st.session_state.help_panel_open:
             with st.expander("🤖 AI Assistant", expanded=True):
                 st.markdown("Ask me anything about using the Voice Task Manager!")
                 
-                # Status indicator
+                # Display any existing response OUTSIDE the form
                 if st.session_state.help_response:
                     st.success("✅ Response ready")
-                elif st.session_state.help_question:
-                    st.info("🤔 Processing...")
-                else:
-                    st.info("💡 Ready for questions")
-                
-                # Voice input for help
-                help_audio = st.audio_input("🎤 Ask with voice", key="help_audio")
-                
-                # Track if we need to process a new question
-                should_process_question = False
-                
-                if help_audio:
-                    print(f"DEBUG: Help audio detected")
-                    # Process help voice input
-                    help_audio_bytes = help_audio.read()
-                    with st.spinner("Processing your question..."):
-                        help_transcription = whisper.transcribe(help_audio_bytes)
-                    
-                    if help_transcription:
-                        print(f"DEBUG: Help transcription: {help_transcription}")
-                        st.session_state.help_question = help_transcription
-                        st.text_area("Your question:", help_transcription, height=60)
-                        
-                        # Immediately process the voice question
-                        current_tasks = task_manager.get_tasks()
-                        with st.spinner("Getting help..."):
-                            help_response = help_service.get_help_response(help_transcription, current_tasks)
-                            st.session_state.help_response = help_response
-                            st.session_state.help_processing_disabled = True
-                            print(f"DEBUG: Help response generated from voice: {len(help_response)} characters")
-                
-                # Text input for help
-                help_question = st.text_input(
-                    "💬 Or type your question:",
-                    value=st.session_state.help_question,
-                    key=f"help_text_input_{st.session_state.help_input_counter}",
-                    placeholder="e.g., 'How do I add a task?' or 'What commands can I use?'",
-                    help="Type your question here or use voice input above"
-                )
-                
-                # Display help response
-                if st.session_state.help_response:
                     st.markdown("**Answer:**")
                     st.markdown(st.session_state.help_response)
                     
@@ -250,34 +230,88 @@ def main():
                     with col_clear:
                         if st.button("Clear Answer", key="clear_help"):
                             st.session_state.help_response = ""
-                            st.session_state.help_processing_disabled = False
-                            st.rerun()
                     
                     with col_reset:
                         if st.button("Reset All", key="reset_help"):
                             st.session_state.help_response = ""
                             st.session_state.help_question = ""
+                            st.session_state.last_help_question_processed = None
                             st.session_state.help_input_counter += 1
-                            st.session_state.help_processing_disabled = False
                             st.rerun()
+                else:
+                    st.info("💡 Ready for questions")
                 
-                # Process text input only (voice is handled above)
-                # Only process if text changed AND is not empty AND we don't have a response
-                if (not st.session_state.help_response and 
-                    not st.session_state.help_processing_disabled and
-                    help_question and 
-                    help_question != st.session_state.help_question and 
-                    help_question.strip()):
+                # FORM for text input - prevents reruns until submission
+                with st.form(key="help_form", clear_on_submit=True):
+                    st.markdown("### Ask a Question")
                     
-                    st.session_state.help_question = help_question
-                    print(f"DEBUG: Processing typed help question: {help_question}")
-                    current_tasks = task_manager.get_tasks()
+                    # Text input within form
+                    help_question = st.text_input(
+                        "💬 Type your question:",
+                        placeholder="e.g., 'How do I add a task?' or 'Add a task to buy groceries'",
+                        help="Type your question here and press Submit"
+                    )
                     
-                    with st.spinner("Getting help..."):
+                    # Submit button for the form
+                    submitted = st.form_submit_button("Ask", use_container_width=True)
+                    
+                    if submitted and help_question and help_question.strip():
+                        print(f"DEBUG: Form submitted with question: {help_question}")
+                        st.session_state.help_question = help_question
+                        st.session_state.last_help_question_processed = help_question
+                        
+                        # Process the question
+                        current_tasks = task_manager.get_tasks()
                         help_response = help_service.get_help_response(help_question, current_tasks)
                         st.session_state.help_response = help_response
-                        st.session_state.help_processing_disabled = True
-                        print(f"DEBUG: Help response generated from text: {len(help_response)} characters")
+                        print(f"DEBUG: Help response generated: {len(help_response)} characters")
+                        
+                        # If tasks were updated by the agent, trigger full app rerun
+                        if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
+                            print(f"DEBUG: Tasks were updated, triggering full rerun")
+                            st.session_state.tasks_updated = False
+                            st.rerun()  # This will refresh everything including the task list
+                        else:
+                            # Just rerun to show the response
+                            st.rerun()
+                
+                # Voice input OUTSIDE the form (for immediate processing)
+                st.markdown("### Or Use Voice")
+                help_audio = st.audio_input("🎤 Ask with voice", key=f"help_audio_{st.session_state.help_audio_version}")
+                
+                if help_audio:
+                    print(f"DEBUG: Help audio detected")
+                    # Process help voice input
+                    help_audio_bytes = help_audio.read()
+                    help_transcription = whisper.transcribe(help_audio_bytes)
+                    
+                    if help_transcription and help_transcription != st.session_state.last_help_question_processed:
+                        print(f"DEBUG: Help transcription: {help_transcription}")
+                        st.session_state.help_question = help_transcription
+                        st.session_state.last_help_question_processed = help_transcription
+                        
+                        # Show transcription
+                        st.text_area("Your question:", help_transcription, height=60, disabled=True)
+                        
+                        # Process the voice question
+                        current_tasks = task_manager.get_tasks()
+                        with st.spinner("Getting help..."):
+                            help_response = help_service.get_help_response(help_transcription, current_tasks)
+                            st.session_state.help_response = help_response
+                            print(f"DEBUG: Help response generated from voice: {len(help_response)} characters")
+                        
+                        # After spinner completes, handle the rerun
+                        # Check if tasks were updated
+                        if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
+                            print(f"DEBUG: Tasks were updated, triggering rerun")
+                            st.session_state.tasks_updated = False
+                        else:
+                            print(f"DEBUG: Response ready, triggering rerun to display")
+                        
+                        # Increment audio version to reset the widget for next recording
+                        st.session_state.help_audio_version += 1
+                        print(f"DEBUG: Incremented help_audio_version to {st.session_state.help_audio_version}")
+                        st.rerun()
                 
                 # Quick reference
                 with st.expander("📋 Quick Reference"):
@@ -288,6 +322,10 @@ def main():
                 suggestions = help_service.get_contextual_suggestions(current_tasks)
                 with st.expander("💡 Suggestions"):
                     st.markdown(suggestions)
+    
+    # Call the help panel in the sidebar
+    with st.sidebar:
+        render_help_panel()
     
     # Mode selector
     st.subheader("🎯 Mode Selection")
@@ -469,6 +507,7 @@ def main():
     
     with col2:
         st.header("📋 Task List")
+        
         
         tasks = task_manager.get_tasks()
         print(f"DEBUG: Retrieved {len(tasks)} tasks from task manager")

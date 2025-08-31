@@ -4,14 +4,16 @@ from pathlib import Path
 import json
 
 class HelpService:
-    def __init__(self, llm_service):
+    def __init__(self, llm_service, agent_service=None):
         """
         Initialize the help service with access to the LLM service
         
         Args:
             llm_service: The existing LLMService instance
+            agent_service: Optional AgentService for enhanced capabilities
         """
         self.llm_service = llm_service
+        self.agent_service = agent_service  # Optional: Use agent if available
         self.knowledge_base = self._load_knowledge_base()
         self.ui_reference = self._load_ui_reference()
     
@@ -72,6 +74,38 @@ class HelpService:
         Returns:
             A helpful response string
         """
+        # Try using the agent service first if available (for action capabilities)
+        if self.agent_service is not None:
+            try:
+                # Build context for the agent
+                context = {
+                    "current_tasks": current_tasks or [],
+                    "task_count": len(current_tasks) if current_tasks else 0,
+                    "knowledge_base_available": True,
+                    "ui_reference_available": bool(self.ui_reference)
+                }
+                
+                # Process through the agent (synchronously for Streamlit)
+                result = self.agent_service.process_request_sync(user_question, context)
+                
+                if result.get("success"):
+                    response_text = result.get("response", "")
+                    
+                    # If tools were called, add a note about task being added
+                    if result.get("tool_calls"):
+                        # Mark that we need a refresh in session state
+                        import streamlit as st
+                        if 'tasks_updated' not in st.session_state:
+                            st.session_state.tasks_updated = True
+                    
+                    return response_text
+                else:
+                    # Fall back to regular LLM if agent fails
+                    print(f"Agent service failed, falling back to LLM: {result.get('error')}")
+            except Exception as e:
+                print(f"Agent service error, falling back to LLM: {e}")
+        
+        # Original LLM-based implementation (fallback or primary if no agent)
         try:
             # Build context with knowledge base and UI reference
             ui_ref_str = json.dumps(self.ui_reference, indent=2) if self.ui_reference else ""
