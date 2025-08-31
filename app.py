@@ -329,9 +329,9 @@ def main():
             # Response Area - FIXED AT BOTTOM
             st.divider()
             if st.session_state.help_response:
-                # Show last question/command
+                # Show what was sent (transcription or typed text)
                 if st.session_state.help_question:
-                    st.caption(f"You: {st.session_state.help_question}")
+                    st.markdown(f"**You:** {st.session_state.help_question}")
                 
                 # Show response
                 st.markdown("**Response:**")

@@ -40,23 +40,23 @@ class AgentService:
         self.agent = create_react_agent(
             self.llm,
             self.tools,
-            prompt="""You are a helpful Voice Task Manager assistant who can take actions directly in the system.
+            prompt="""You are a Voice Task Manager assistant that executes actions directly.
 
-CRITICAL INSTRUCTIONS:
-When you successfully use a tool to perform an action:
-- The tool itself will return a success message like "✅ Successfully added task..."
-- DO NOT add any additional explanation after the tool message
-- DO NOT explain how the user could have done it themselves
-- DO NOT provide manual instructions
-- Just let the tool's success message be your entire response
-
-When the user asks "how to" do something (without requesting the action):
-- Explain the voice commands they can use
-- Provide helpful instructions
+You MUST use tools to execute ALL task-related commands.
+NEVER explain how to do something - just DO IT using tools.
 
 Examples:
-- User: "Add a task to buy milk" → Use tool, response is just the tool's success message
-- User: "How do I add tasks?" → Explain voice commands (don't use tools)"""
+- "Add task buy milk" → USE add_task tool
+- "Mark buy groceries complete" → USE complete_task tool  
+- "Complete the church task" → USE complete_task tool
+- "I finished buy milk" → USE complete_task tool
+- "Done with groceries" → USE complete_task tool
+
+The ONLY time you explain without using tools is when user asks:
+- "How do I..." 
+- "What commands..."
+
+Otherwise, ALWAYS execute the action with the appropriate tool."""
         )
     
     def _create_tools(self):
@@ -71,8 +71,16 @@ Examples:
             """
             Add a new task to the task list.
             
+            IMPORTANT: The 'text' parameter should be the actual task content, not command words.
+            
+            Examples of correct usage:
+            - User says "Add a task to buy milk" → add_task(text="buy milk")
+            - User says "Create task for calling dentist" → add_task(text="calling dentist")
+            - User says "Add new task buy pepsi cola" → add_task(text="buy pepsi cola")
+            - User says "New high priority task review contract" → add_task(text="review contract", priority="high")
+            
             Args:
-                text: The task description
+                text: The actual task description (what needs to be done)
                 priority: Task priority (high, medium, low)
                 category: Optional category (client, business, personal)
             
@@ -108,67 +116,80 @@ Examples:
                 return f"Error adding task: {str(e)}"
         
         @tool
-        def complete_task(task_description: str) -> str:
+        def complete_task(task_identifier: str) -> str:
             """
-            Mark a task as completed/done in the user's task list.
+            Mark a task as completed by finding the best match.
             
-            This tool should be called when the user wants to mark a task as finished.
-            The tool will search for the task by matching the description and mark it complete.
+            IMPORTANT: The 'task_identifier' should be the task content/description, not command words.
             
             Common phrases that trigger this tool:
-            - "Mark ... as done"
-            - "Complete the task..."
-            - "I finished..."
-            - "Check off..."
-            - "Task ... is done"
-            - "I completed..."
-            - "Mark ... complete"
-            - "Done with..."
-            - "Finished..."
-            - "Cross off..."
+            - "Mark X as done/complete"
+            - "Complete X"
+            - "I finished X"
+            - "Check off X"
+            - "Done with X"
+            - "X is done"
+            - "Cross off X"
+            
+            Examples of correct usage:
+            - User says "Mark go to church as done" → complete_task(task_identifier="go to church")
+            - User says "Complete the groceries task" → complete_task(task_identifier="groceries")
+            - User says "I finished the equity agreement" → complete_task(task_identifier="equity agreement")
+            - User says "Check off buy milk" → complete_task(task_identifier="buy milk")
+            - User says "Done with calling the dentist" → complete_task(task_identifier="calling the dentist")
             
             Args:
-                task_description: A description that identifies which task to complete.
-                                 This can be partial text that matches a task.
-            
-            Examples:
-                User: "Mark buy groceries as done" -> complete_task("buy groceries")
-                User: "I finished calling the dentist" -> complete_task("calling the dentist")
-                User: "Complete the contract review task" -> complete_task("contract review")
-                User: "Check off watering the plants" -> complete_task("watering the plants")
-                User: "Done with the equity agreement" -> complete_task("equity agreement")
+                task_identifier: The task description or key words to identify which task to complete
             
             Returns:
                 Success message if task was found and marked complete,
-                or an error message if no matching task was found.
+                or an error message with list of pending tasks if no match found
             """
             try:
-                # Get all tasks
                 tasks = task_manager.get_tasks()
+                pending_tasks = [t for t in tasks if not t.get('completed', False)]
                 
-                # Find matching task (case-insensitive partial match)
-                matching_task = None
-                task_description_lower = task_description.lower()
+                if not pending_tasks:
+                    return "❌ No pending tasks to complete."
                 
-                for task in tasks:
-                    if not task.get('completed', False):  # Only look at incomplete tasks
-                        task_text = task.get('text', '').lower()
-                        if task_description_lower in task_text or task_text in task_description_lower:
-                            matching_task = task
-                            break
+                # Normalize the identifier
+                identifier_lower = task_identifier.lower().strip()
                 
-                if matching_task:
-                    # Mark the task as complete
-                    task_manager.toggle_task(matching_task['id'])
-                    return f"✅ Marked as complete: '{matching_task['text']}'"
-                else:
-                    # No matching task found
-                    pending_tasks = [t['text'] for t in tasks if not t.get('completed', False)]
-                    if pending_tasks:
-                        task_list = '\n'.join([f"- {t}" for t in pending_tasks[:5]])
-                        return f"❌ Could not find a task matching '{task_description}'.\n\nYour pending tasks:\n{task_list}"
-                    else:
-                        return "❌ No pending tasks to complete."
+                # Try exact match first
+                for task in pending_tasks:
+                    if task['text'].lower().strip() == identifier_lower:
+                        task_manager.toggle_task(task['id'])
+                        return f"✅ Completed: {task['text']}"
+                
+                # Try substring match
+                for task in pending_tasks:
+                    task_text_lower = task['text'].lower()
+                    # Check if identifier is in task or task is in identifier
+                    if identifier_lower in task_text_lower or task_text_lower in identifier_lower:
+                        task_manager.toggle_task(task['id'])
+                        return f"✅ Completed: {task['text']}"
+                
+                # Try word-based matching
+                identifier_words = set(identifier_lower.split())
+                best_match = None
+                best_score = 0
+                
+                for task in pending_tasks:
+                    task_words = set(task['text'].lower().split())
+                    common_words = identifier_words & task_words
+                    score = len(common_words)
+                    
+                    if score > best_score and score >= 1:  # At least 1 word must match
+                        best_score = score
+                        best_match = task
+                
+                if best_match:
+                    task_manager.toggle_task(best_match['id'])
+                    return f"✅ Completed: {best_match['text']}"
+                
+                # No match found
+                task_list = '\n'.join([f"- {t['text']}" for t in pending_tasks[:5]])
+                return f"❌ Could not find a task matching '{task_identifier}'.\n\nYour pending tasks:\n{task_list}"
                 
             except Exception as e:
                 return f"Error completing task: {str(e)}"
@@ -188,22 +209,15 @@ Examples:
             Dict with response and any tool results
         """
         try:
-            # Build the full prompt with context
-            prompt = user_input
-            if context and context.get("current_tasks"):
-                task_count = len(context["current_tasks"])
-                pending_tasks = [t for t in context["current_tasks"] if not t.get('completed', False)]
-                pending_count = len(pending_tasks)
-                prompt = f"""Context: The user has {task_count} total tasks ({pending_count} pending).
-
-User request: {user_input}
-
-Remember: If this is an action request (like "add a task"), use the appropriate tool and just confirm what you did. Don't explain how they could do it manually."""
+            # Just send the user input directly - no extra prompting
+            print(f"DEBUG: Agent processing: '{user_input}'")
             
             # Invoke the agent
             result = await self.agent.ainvoke({
-                "messages": [{"role": "user", "content": prompt}]
+                "messages": [{"role": "user", "content": user_input}]
             })
+            
+            print(f"DEBUG: Agent result: {result}")
             
             # Extract the response and tool calls
             tool_calls = []
