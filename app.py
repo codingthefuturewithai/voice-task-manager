@@ -198,130 +198,154 @@ def main():
     if 'help_audio_version' not in st.session_state:
         st.session_state.help_audio_version = 0
         print(f"DEBUG: Initialized help_audio_version to 0")
+    if 'help_mode' not in st.session_state:
+        st.session_state.help_mode = 'question'  # 'question' or 'command'
+        print(f"DEBUG: Initialized help_mode to question")
     
     print(f"DEBUG: Current mode: {st.session_state.mode}")
     print(f"DEBUG: Current audio hash: {st.session_state.current_audio_hash}")
     print(f"DEBUG: Has processed tasks: {st.session_state.processed_tasks is not None}")
     print(f"DEBUG: Has transcription: {st.session_state.transcription is not None}")
     
-    # Help Panel in Sidebar - NOT a fragment because fragments still execute on full reruns
+    # Help Panel in Sidebar - Clean, simple, reliable
     def render_help_panel():
-        st.header("❓ Help & Assistance")
+        st.header("🤖 AI Assistant")
         
         # Help panel toggle
         help_status = "🟢 Active" if st.session_state.help_panel_open else "⚪ Inactive"
-        if st.button(f"🔧 Toggle Help Panel ({help_status})", key="toggle_help"):
+        if st.button(f"🔧 Toggle Panel ({help_status})", key="toggle_help"):
             st.session_state.help_panel_open = not st.session_state.help_panel_open
         
         # Help panel content
         if st.session_state.help_panel_open:
-            with st.expander("🤖 AI Assistant", expanded=True):
-                st.markdown("Ask me anything about using the Voice Task Manager!")
+            st.divider()
+            
+            # Mode Toggle - Prominent at top
+            st.markdown("### Select Mode")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(
+                    "❓ Question Mode" if st.session_state.help_mode != 'question' else "✅ Question Mode",
+                    key="mode_question",
+                    use_container_width=True,
+                    type="primary" if st.session_state.help_mode == 'question' else "secondary"
+                ):
+                    st.session_state.help_mode = 'question'
+                    st.session_state.help_response = ""  # Clear previous response
+                    print(f"DEBUG: Switched to Question mode")
+            
+            with col2:
+                if st.button(
+                    "⚡ Command Mode" if st.session_state.help_mode != 'command' else "✅ Command Mode",
+                    key="mode_command",
+                    use_container_width=True,
+                    type="primary" if st.session_state.help_mode == 'command' else "secondary"
+                ):
+                    st.session_state.help_mode = 'command'
+                    st.session_state.help_response = ""  # Clear previous response
+                    print(f"DEBUG: Switched to Command mode")
+            
+            # Mode description
+            if st.session_state.help_mode == 'question':
+                st.info("📚 Ask questions about how to use the app")
+            else:
+                st.success("🚀 I'll execute commands for you")
+            
+            st.divider()
+            
+            # Voice Input - PROMINENT AT TOP
+            mode_text = "question" if st.session_state.help_mode == 'question' else "command"
+            st.markdown(f"### 🎤 Speak your {mode_text}")
+            help_audio = st.audio_input(
+                "Click to record",
+                key=f"help_audio_{st.session_state.help_audio_version}"
+            )
+            
+            if help_audio:
+                print(f"DEBUG: Help audio detected in {st.session_state.help_mode} mode")
+                # Process help voice input
+                help_audio_bytes = help_audio.read()
+                help_transcription = whisper.transcribe(help_audio_bytes)
                 
-                # Display any existing response OUTSIDE the form
-                if st.session_state.help_response:
-                    st.success("✅ Response ready")
-                    st.markdown("**Answer:**")
-                    st.markdown(st.session_state.help_response)
+                if help_transcription and help_transcription != st.session_state.last_help_question_processed:
+                    print(f"DEBUG: Help transcription: {help_transcription}")
+                    st.session_state.help_question = help_transcription
+                    st.session_state.last_help_question_processed = help_transcription
                     
-                    # Action buttons row
-                    col_clear, col_reset = st.columns(2)
-                    
-                    with col_clear:
-                        if st.button("Clear Answer", key="clear_help"):
-                            st.session_state.help_response = ""
-                    
-                    with col_reset:
-                        if st.button("Reset All", key="reset_help"):
-                            st.session_state.help_response = ""
-                            st.session_state.help_question = ""
-                            st.session_state.last_help_question_processed = None
-                            st.session_state.help_input_counter += 1
-                            st.rerun()
-                else:
-                    st.info("💡 Ready for questions")
-                
-                # FORM for text input - prevents reruns until submission
-                with st.form(key="help_form", clear_on_submit=True):
-                    st.markdown("### Ask a Question")
-                    
-                    # Text input within form
-                    help_question = st.text_input(
-                        "💬 Type your question:",
-                        placeholder="e.g., 'How do I add a task?' or 'Add a task to buy groceries'",
-                        help="Type your question here and press Submit"
-                    )
-                    
-                    # Submit button for the form
-                    submitted = st.form_submit_button("Ask", use_container_width=True)
-                    
-                    if submitted and help_question and help_question.strip():
-                        print(f"DEBUG: Form submitted with question: {help_question}")
-                        st.session_state.help_question = help_question
-                        st.session_state.last_help_question_processed = help_question
-                        
-                        # Process the question
-                        current_tasks = task_manager.get_tasks()
-                        help_response = help_service.get_help_response(help_question, current_tasks)
+                    # Process based on mode
+                    current_tasks = task_manager.get_tasks()
+                    with st.spinner("Processing..."):
+                        # Pass mode to help service
+                        help_response = help_service.get_help_response(
+                            help_transcription, 
+                            current_tasks,
+                            mode=st.session_state.help_mode
+                        )
                         st.session_state.help_response = help_response
-                        print(f"DEBUG: Help response generated: {len(help_response)} characters")
-                        
-                        # If tasks were updated by the agent, trigger full app rerun
-                        if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
-                            print(f"DEBUG: Tasks were updated, triggering full rerun")
-                            st.session_state.tasks_updated = False
-                            st.rerun()  # This will refresh everything including the task list
-                        else:
-                            # Just rerun to show the response
-                            st.rerun()
-                
-                # Voice input OUTSIDE the form (for immediate processing)
-                st.markdown("### Or Use Voice")
-                help_audio = st.audio_input("🎤 Ask with voice", key=f"help_audio_{st.session_state.help_audio_version}")
-                
-                if help_audio:
-                    print(f"DEBUG: Help audio detected")
-                    # Process help voice input
-                    help_audio_bytes = help_audio.read()
-                    help_transcription = whisper.transcribe(help_audio_bytes)
+                        print(f"DEBUG: Help response generated from voice: {len(help_response)} characters")
                     
-                    if help_transcription and help_transcription != st.session_state.last_help_question_processed:
-                        print(f"DEBUG: Help transcription: {help_transcription}")
-                        st.session_state.help_question = help_transcription
-                        st.session_state.last_help_question_processed = help_transcription
-                        
-                        # Show transcription
-                        st.text_area("Your question:", help_transcription, height=60, disabled=True)
-                        
-                        # Process the voice question
-                        current_tasks = task_manager.get_tasks()
-                        with st.spinner("Getting help..."):
-                            help_response = help_service.get_help_response(help_transcription, current_tasks)
-                            st.session_state.help_response = help_response
-                            print(f"DEBUG: Help response generated from voice: {len(help_response)} characters")
-                        
-                        # After spinner completes, handle the rerun
-                        # Check if tasks were updated
-                        if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
-                            print(f"DEBUG: Tasks were updated, triggering rerun")
-                            st.session_state.tasks_updated = False
-                        else:
-                            print(f"DEBUG: Response ready, triggering rerun to display")
-                        
-                        # Increment audio version to reset the widget for next recording
-                        st.session_state.help_audio_version += 1
-                        print(f"DEBUG: Incremented help_audio_version to {st.session_state.help_audio_version}")
-                        st.rerun()
+                    # Check if tasks were updated (command mode)
+                    if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
+                        print(f"DEBUG: Tasks were updated, triggering rerun")
+                        st.session_state.tasks_updated = False
+                    else:
+                        print(f"DEBUG: Response ready, triggering rerun to display")
+                    
+                    # Increment audio version to reset the widget
+                    st.session_state.help_audio_version += 1
+                    print(f"DEBUG: Incremented help_audio_version to {st.session_state.help_audio_version}")
+                    st.rerun()
+            
+            # Text input (secondary option) in a form
+            with st.form(key="help_text_form", clear_on_submit=True):
+                help_text = st.text_input(
+                    f"Or type your {mode_text}:",
+                    placeholder="Add a task to buy groceries" if st.session_state.help_mode == 'command' 
+                               else "How do I add a task?"
+                )
+                submitted = st.form_submit_button("Submit", use_container_width=True)
                 
-                # Quick reference
-                with st.expander("📋 Quick Reference"):
-                    st.markdown(help_service.get_quick_reference())
+                if submitted and help_text and help_text.strip():
+                    print(f"DEBUG: Text submitted in {st.session_state.help_mode} mode: {help_text}")
+                    st.session_state.help_question = help_text
+                    st.session_state.last_help_question_processed = help_text
+                    
+                    # Process based on mode
+                    current_tasks = task_manager.get_tasks()
+                    help_response = help_service.get_help_response(
+                        help_text,
+                        current_tasks,
+                        mode=st.session_state.help_mode
+                    )
+                    st.session_state.help_response = help_response
+                    print(f"DEBUG: Help response generated: {len(help_response)} characters")
+                    
+                    # Check if tasks were updated
+                    if 'tasks_updated' in st.session_state and st.session_state.tasks_updated:
+                        print(f"DEBUG: Tasks were updated, triggering full rerun")
+                        st.session_state.tasks_updated = False
+                    st.rerun()
+            
+            # Response Area - FIXED AT BOTTOM
+            st.divider()
+            if st.session_state.help_response:
+                # Show last question/command
+                if st.session_state.help_question:
+                    st.caption(f"You: {st.session_state.help_question}")
                 
-                # Contextual suggestions
-                current_tasks = task_manager.get_tasks()
-                suggestions = help_service.get_contextual_suggestions(current_tasks)
-                with st.expander("💡 Suggestions"):
-                    st.markdown(suggestions)
+                # Show response
+                st.markdown("**Response:**")
+                st.markdown(st.session_state.help_response)
+                
+                # Single clear button
+                if st.button("Clear", key="clear_response"):
+                    st.session_state.help_response = ""
+                    st.session_state.help_question = ""
+                    st.session_state.help_audio_version += 1
+                    st.rerun()
+            else:
+                mode_label = "question" if st.session_state.help_mode == 'question' else "command"
+                st.info(f"💭 Ready for your {mode_label}...")
     
     # Call the help panel in the sidebar
     with st.sidebar:

@@ -63,19 +63,20 @@ class HelpService:
         - Categories: Client (👤), Business (💼), Personal (🏠)
         """
     
-    def get_help_response(self, user_question: str, current_tasks: Optional[List[Dict[str, Any]]] = None) -> str:
+    def get_help_response(self, user_question: str, current_tasks: Optional[List[Dict[str, Any]]] = None, mode: str = 'question') -> str:
         """
         Get a helpful response to a user's question using the LLM and knowledge base
         
         Args:
             user_question: The user's question or request for help
             current_tasks: Optional list of current tasks for context-aware help
+            mode: 'question' for Q&A about UI usage, 'command' for executing actions
             
         Returns:
             A helpful response string
         """
-        # Try using the agent service first if available (for action capabilities)
-        if self.agent_service is not None:
+        # In command mode, use agent service for actions
+        if mode == 'command' and self.agent_service is not None:
             try:
                 # Build context for the agent
                 context = {
@@ -105,23 +106,45 @@ class HelpService:
             except Exception as e:
                 print(f"Agent service error, falling back to LLM: {e}")
         
-        # Original LLM-based implementation (fallback or primary if no agent)
+        # Question mode: Always use LLM to explain UI usage (never execute actions)
         try:
             # Build context with knowledge base and UI reference
             ui_ref_str = json.dumps(self.ui_reference, indent=2) if self.ui_reference else ""
             
-            context = f"""
-            You are a helpful assistant for the Voice Task Manager application. 
-            Use the following knowledge base to answer user questions:
-            
-            {self.knowledge_base}
-            
-            UI Elements Reference (for precise location answers):
-            {ui_ref_str}
-            
-            Current application state:
-            - Total tasks: {len(current_tasks) if current_tasks else 0}
-            """
+            # Build context based on mode
+            if mode == 'question':
+                context = f"""
+                You are a helpful assistant for the Voice Task Manager application.
+                The user is in QUESTION MODE and wants to learn HOW to use the app themselves.
+                
+                IMPORTANT: In this mode, you should:
+                - Explain how to use the UI features
+                - Describe where buttons and controls are located
+                - Teach the user to be self-sufficient
+                - Mention that they can switch to Command Mode if they want you to do it for them
+                
+                Use the following knowledge base to answer user questions:
+                
+                {self.knowledge_base}
+                
+                UI Elements Reference (for precise location answers):
+                {ui_ref_str}
+                
+                Note: The AI Assistant panel now has two modes:
+                - Question Mode (current): For learning how to use the app
+                - Command Mode: Where the assistant can execute tasks directly
+                
+                Current application state:
+                - Total tasks: {len(current_tasks) if current_tasks else 0}
+                """
+            else:
+                # This shouldn't happen since command mode is handled above
+                context = f"""
+                You are a helpful assistant for the Voice Task Manager application.
+                {self.knowledge_base}
+                Current application state:
+                - Total tasks: {len(current_tasks) if current_tasks else 0}
+                """
             
             # Add task context if available
             if current_tasks:
