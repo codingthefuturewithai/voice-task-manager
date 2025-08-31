@@ -36,11 +36,8 @@ class AgentService:
         # Create tools directly
         self.tools = self._create_tools()
         
-        # Create the agent with tools
-        self.agent = create_react_agent(
-            self.llm,
-            self.tools,
-            prompt="""You are a Voice Task Manager assistant that executes actions directly.
+        # Store prompt for logging
+        self.system_prompt = """You are a Voice Task Manager assistant that executes actions directly.
 
 You MUST use tools to execute ALL task-related commands.
 NEVER explain how to do something - just DO IT using tools.
@@ -57,6 +54,12 @@ The ONLY time you explain without using tools is when user asks:
 - "What commands..."
 
 Otherwise, ALWAYS execute the action with the appropriate tool."""
+        
+        # Create the agent with tools
+        self.agent = create_react_agent(
+            self.llm,
+            self.tools,
+            prompt=self.system_prompt
         )
     
     def _create_tools(self):
@@ -209,15 +212,23 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
             Dict with response and any tool results
         """
         try:
-            # Just send the user input directly - no extra prompting
-            print(f"DEBUG: Agent processing: '{user_input}'")
+            # Log the complete system prompt
+            print(f"\n{'='*50}")
+            print(f"SENDING TO LLM (GPT-4o-mini):")
+            print(f"System Prompt:\n{self.system_prompt}")
+            print(f"\nUser Input: '{user_input}'")
+            print(f"Available Tools: {[tool.name for tool in self.tools]}")
+            print(f"{'='*50}\n")
             
             # Invoke the agent
             result = await self.agent.ainvoke({
                 "messages": [{"role": "user", "content": user_input}]
             })
             
-            print(f"DEBUG: Agent result: {result}")
+            print(f"\n{'='*50}")
+            print(f"LLM RESPONSE:")
+            print(f"Full result: {result}")
+            print(f"{'='*50}\n")
             
             # Extract the response and tool calls
             tool_calls = []

@@ -328,11 +328,13 @@ def main():
             
             # Response Area - FIXED AT BOTTOM
             st.divider()
+            
+            # Always show transcription if available
+            if st.session_state.help_question:
+                st.markdown("**Transcribed/Input:**")
+                st.code(st.session_state.help_question)
+            
             if st.session_state.help_response:
-                # Show what was sent (transcription or typed text)
-                if st.session_state.help_question:
-                    st.markdown(f"**You:** {st.session_state.help_question}")
-                
                 # Show response
                 st.markdown("**Response:**")
                 st.markdown(st.session_state.help_response)
