@@ -76,7 +76,9 @@ class HelpService:
             A helpful response string
         """
         # In command mode, use agent service for actions
+        print(f"DEBUG: get_help_response called with mode='{mode}', agent_service={self.agent_service is not None}")
         if mode == 'command' and self.agent_service is not None:
+            print(f"DEBUG: Routing to agent service for command: {user_question}")
             try:
                 # Build context for the agent
                 context = {
@@ -102,9 +104,12 @@ class HelpService:
                     return response_text
                 else:
                     # Fall back to regular LLM if agent fails
-                    print(f"Agent service failed, falling back to LLM: {result.get('error')}")
+                    print(f"CRITICAL: Agent service failed, falling back to LLM: {result.get('error')}")
+                    print(f"Full result: {result}")
             except Exception as e:
-                print(f"Agent service error, falling back to LLM: {e}")
+                print(f"CRITICAL: Agent service error, falling back to LLM: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Question mode: Always use LLM to explain UI usage (never execute actions)
         try:

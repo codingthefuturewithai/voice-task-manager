@@ -39,34 +39,24 @@ class AgentService:
         # Create the agent with tools
         self.agent = create_react_agent(
             self.llm,
-            tools=self.tools,
-            state_modifier="""You are the Voice Task Manager assistant in COMMAND MODE.
-You have direct access to execute actions in the system.
+            self.tools,
+            prompt="""You are a helpful Voice Task Manager assistant who can take actions directly in the system.
 
-CRITICAL INSTRUCTIONS FOR COMMAND MODE:
-When the user gives you a command or asks you to do something:
-- IMMEDIATELY use the appropriate tool to execute the action
-- The tool will return a success message like "✅ Successfully added task..."
+CRITICAL INSTRUCTIONS:
+When you successfully use a tool to perform an action:
+- The tool itself will return a success message like "✅ Successfully added task..."
+- DO NOT add any additional explanation after the tool message
+- DO NOT explain how the user could have done it themselves
+- DO NOT provide manual instructions
 - Just let the tool's success message be your entire response
-- DO NOT explain how they could do it themselves
-- DO NOT provide instructions
 
-Common command patterns to recognize and execute:
-- "Add a task..." → Use add_task tool
-- "Add task..." → Use add_task tool  
-- "Create a task..." → Use add_task tool
-- "New task..." → Use add_task tool
-- "Add a new task..." → Use add_task tool
-- "Can you add..." → Use add_task tool
-- "Please add..." → Use add_task tool
+When the user asks "how to" do something (without requesting the action):
+- Explain the voice commands they can use
+- Provide helpful instructions
 
 Examples:
-- User: "Add a task to buy milk" → Use add_task tool
-- User: "Add a new task buy groceries and beer" → Use add_task tool with text="buy groceries and beer"
-- User: "Create a task for reviewing the contract" → Use add_task tool
-- User: "New task: call the dentist" → Use add_task tool
-
-REMEMBER: In Command Mode, assume they want you to DO IT, not explain it."""
+- User: "Add a task to buy milk" → Use tool, response is just the tool's success message
+- User: "How do I add tasks?" → Explain voice commands (don't use tools)"""
         )
     
     def _create_tools(self):
@@ -117,8 +107,74 @@ REMEMBER: In Command Mode, assume they want you to DO IT, not explain it."""
             except Exception as e:
                 return f"Error adding task: {str(e)}"
         
+        @tool
+        def complete_task(task_description: str) -> str:
+            """
+            Mark a task as completed/done in the user's task list.
+            
+            This tool should be called when the user wants to mark a task as finished.
+            The tool will search for the task by matching the description and mark it complete.
+            
+            Common phrases that trigger this tool:
+            - "Mark ... as done"
+            - "Complete the task..."
+            - "I finished..."
+            - "Check off..."
+            - "Task ... is done"
+            - "I completed..."
+            - "Mark ... complete"
+            - "Done with..."
+            - "Finished..."
+            - "Cross off..."
+            
+            Args:
+                task_description: A description that identifies which task to complete.
+                                 This can be partial text that matches a task.
+            
+            Examples:
+                User: "Mark buy groceries as done" -> complete_task("buy groceries")
+                User: "I finished calling the dentist" -> complete_task("calling the dentist")
+                User: "Complete the contract review task" -> complete_task("contract review")
+                User: "Check off watering the plants" -> complete_task("watering the plants")
+                User: "Done with the equity agreement" -> complete_task("equity agreement")
+            
+            Returns:
+                Success message if task was found and marked complete,
+                or an error message if no matching task was found.
+            """
+            try:
+                # Get all tasks
+                tasks = task_manager.get_tasks()
+                
+                # Find matching task (case-insensitive partial match)
+                matching_task = None
+                task_description_lower = task_description.lower()
+                
+                for task in tasks:
+                    if not task.get('completed', False):  # Only look at incomplete tasks
+                        task_text = task.get('text', '').lower()
+                        if task_description_lower in task_text or task_text in task_description_lower:
+                            matching_task = task
+                            break
+                
+                if matching_task:
+                    # Mark the task as complete
+                    task_manager.toggle_task(matching_task['id'])
+                    return f"✅ Marked as complete: '{matching_task['text']}'"
+                else:
+                    # No matching task found
+                    pending_tasks = [t['text'] for t in tasks if not t.get('completed', False)]
+                    if pending_tasks:
+                        task_list = '\n'.join([f"- {t}" for t in pending_tasks[:5]])
+                        return f"❌ Could not find a task matching '{task_description}'.\n\nYour pending tasks:\n{task_list}"
+                    else:
+                        return "❌ No pending tasks to complete."
+                
+            except Exception as e:
+                return f"Error completing task: {str(e)}"
+        
         # Return list of tools
-        return [add_task]
+        return [add_task, complete_task]
     
     async def process_request(self, user_input: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         """
