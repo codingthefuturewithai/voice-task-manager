@@ -220,26 +220,32 @@ def main():
             st.markdown("### Select Mode")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button(
-                    "❓ Question Mode" if st.session_state.help_mode != 'question' else "✅ Question Mode",
-                    key="mode_question",
-                    use_container_width=True,
-                    type="primary" if st.session_state.help_mode == 'question' else "secondary"
-                ):
+                def switch_to_question():
                     st.session_state.help_mode = 'question'
                     st.session_state.help_response = ""  # Clear previous response
                     print(f"DEBUG: Switched to Question mode")
+                
+                st.button(
+                    "❓ Question Mode" if st.session_state.help_mode != 'question' else "✅ Question Mode",
+                    key="mode_question",
+                    use_container_width=True,
+                    type="primary" if st.session_state.help_mode == 'question' else "secondary",
+                    on_click=switch_to_question
+                )
             
             with col2:
-                if st.button(
-                    "⚡ Command Mode" if st.session_state.help_mode != 'command' else "✅ Command Mode",
-                    key="mode_command",
-                    use_container_width=True,
-                    type="primary" if st.session_state.help_mode == 'command' else "secondary"
-                ):
+                def switch_to_command():
                     st.session_state.help_mode = 'command'
                     st.session_state.help_response = ""  # Clear previous response
                     print(f"DEBUG: Switched to Command mode")
+                
+                st.button(
+                    "⚡ Command Mode" if st.session_state.help_mode != 'command' else "✅ Command Mode",
+                    key="mode_command",
+                    use_container_width=True,
+                    type="primary" if st.session_state.help_mode == 'command' else "secondary",
+                    on_click=switch_to_command
+                )
             
             # Mode description
             if st.session_state.help_mode == 'question':
