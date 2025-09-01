@@ -5,7 +5,7 @@ import json
 class LLMService:
     def __init__(self, api_key: str):
         self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4o-mini"  # Cost-effective model
+        self.model = "gpt-5-nano"  # GPT-5 nano: 3x cheaper than GPT-4o-mini, 3x more context
     
     def process_braindump(self, raw_text: str) -> List[Dict[str, Any]]:
         """
@@ -41,8 +41,7 @@ class LLMService:
                     {"role": "system", "content": "You are a helpful task organization assistant."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                max_completion_tokens=500
             )
             
             result = response.choices[0].message.content.strip()
@@ -124,8 +123,7 @@ class LLMService:
                     {"role": "system", "content": "You are a task management assistant that analyzes voice commands."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                max_tokens=300
+                max_completion_tokens=300
             )
             
             result = response.choices[0].message.content.strip()
@@ -174,8 +172,7 @@ class LLMService:
                     {"role": "system", "content": "You are a task matching assistant."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                max_tokens=50
+                max_completion_tokens=50
             )
             
             result = response.choices[0].message.content.strip()
@@ -224,8 +221,7 @@ class LLMService:
                     {"role": "system", "content": "You are a task prioritization assistant."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=100
+                max_completion_tokens=100
             )
             
             result = response.choices[0].message.content.strip()
@@ -281,8 +277,7 @@ class LLMService:
                     {"role": "system", "content": "You are a task prioritization assistant."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                max_completion_tokens=500
             )
             
             result = response.choices[0].message.content.strip()

@@ -28,32 +28,20 @@ class AgentService:
         self.api_key = api_key
         self.task_manager = task_manager
         self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            api_key=api_key,
-            temperature=0.3
+            model="gpt-5-nano",  # GPT-5 nano: 3x cheaper than GPT-4o-mini, 3x more context
+            api_key=api_key
         )
         
         # Create tools directly
         self.tools = self._create_tools()
         
         # Store prompt for logging
-        self.system_prompt = """You are a Voice Task Manager assistant that executes actions directly.
+        self.system_prompt = """You are a task management assistant.
 
-You MUST use tools to execute ALL task-related commands.
-NEVER explain how to do something - just DO IT using tools.
+When users request actions, use the available tools to complete them.
+If you need information to complete a request, use tools to gather it first.
 
-Examples:
-- "Add task buy milk" → USE add_task tool
-- "Mark buy groceries complete" → USE complete_task tool  
-- "Complete the church task" → USE complete_task tool
-- "I finished buy milk" → USE complete_task tool
-- "Done with groceries" → USE complete_task tool
-
-The ONLY time you explain without using tools is when user asks:
-- "How do I..." 
-- "What commands..."
-
-Otherwise, ALWAYS execute the action with the appropriate tool."""
+Always execute actions rather than explaining how to do them."""
         
         # Create the agent with tools
         self.agent = create_react_agent(
@@ -68,6 +56,40 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
         """
         # Reference to task_manager for use in tool functions
         task_manager = self.task_manager
+        
+        @tool
+        def list_tasks(show_completed: bool = False) -> str:
+            """
+            List all tasks in the system.
+            
+            Args:
+                show_completed: Whether to include completed tasks (default: False, only shows pending)
+            
+            Returns:
+                A formatted list of tasks with their status
+            """
+            print(f"\n{'='*50}")
+            print(f"LIST_TASKS TOOL CALLED BY LLM")
+            print(f"show_completed: {show_completed}")
+            print(f"{'='*50}\n")
+            
+            tasks = task_manager.get_tasks()
+            
+            if show_completed:
+                task_list = tasks
+            else:
+                task_list = [t for t in tasks if not t.get('completed', False)]
+            
+            if not task_list:
+                return "No tasks found."
+            
+            result = "Tasks:\n"
+            for task in task_list:
+                status = "✅" if task.get('completed', False) else "⬜"
+                priority = task.get('priority', 'medium')
+                result += f"{status} {task['text']} (Priority: {priority})\n"
+            
+            return result
         
         @tool
         def add_task(text: str, priority: str = "medium", category: Optional[str] = None) -> str:
@@ -90,6 +112,14 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
             Returns:
                 Confirmation message with the created task ID
             """
+            print(f"\n{'='*50}")
+            print(f"ADD_TASK TOOL CALLED BY LLM")
+            print(f"Received parameters from LLM:")
+            print(f"  - text: '{text}'")
+            print(f"  - priority: '{priority}'")
+            print(f"  - category: '{category}'")
+            print(f"{'='*50}\n")
+            
             try:
                 # Validate inputs
                 if not text or not text.strip():
@@ -108,6 +138,8 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
                     category=category
                 )
                 
+                print(f"TASK ADDED SUCCESSFULLY: ID={task_id}")
+                
                 # Trigger Streamlit UI refresh
                 # Note: st.rerun() will be called from the help_service after getting the response
                 
@@ -121,84 +153,50 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
         @tool
         def complete_task(task_identifier: str) -> str:
             """
-            Mark a task as completed by finding the best match.
-            
-            IMPORTANT: The 'task_identifier' should be the task content/description, not command words.
-            
-            Common phrases that trigger this tool:
-            - "Mark X as done/complete"
-            - "Complete X"
-            - "I finished X"
-            - "Check off X"
-            - "Done with X"
-            - "X is done"
-            - "Cross off X"
-            
-            Examples of correct usage:
-            - User says "Mark go to church as done" → complete_task(task_identifier="go to church")
-            - User says "Complete the groceries task" → complete_task(task_identifier="groceries")
-            - User says "I finished the equity agreement" → complete_task(task_identifier="equity agreement")
-            - User says "Check off buy milk" → complete_task(task_identifier="buy milk")
-            - User says "Done with calling the dentist" → complete_task(task_identifier="calling the dentist")
+            Mark an existing task as completed.
             
             Args:
-                task_identifier: The task description or key words to identify which task to complete
+                task_identifier: The EXACT text of the task to mark as complete
             
             Returns:
-                Success message if task was found and marked complete,
-                or an error message with list of pending tasks if no match found
+                Success message if task was marked complete, or error if not found
             """
+            print(f"\n{'='*50}")
+            print(f"COMPLETE_TASK TOOL CALLED BY LLM")
+            print(f"Received task to complete: '{task_identifier}'")
+            print(f"{'='*50}\n")
+            
             try:
                 tasks = task_manager.get_tasks()
+                
+                # Find exact match
+                for task in tasks:
+                    if task['text'].lower() == task_identifier.lower() and not task.get('completed', False):
+                        print(f"FOUND TASK: '{task['text']}' (ID: {task['id']})")
+                        print(f"MARKING TASK AS COMPLETE...")
+                        task_manager.toggle_task(task['id'])
+                        print(f"SUCCESS! Task marked as complete.")
+                        return f"✅ Completed: {task['text']}"
+                
+                # No exact match found
                 pending_tasks = [t for t in tasks if not t.get('completed', False)]
+                print(f"NO EXACT MATCH for '{task_identifier}'")
+                print(f"Available tasks: {[t['text'] for t in pending_tasks]}")
                 
                 if not pending_tasks:
                     return "❌ No pending tasks to complete."
                 
-                # Normalize the identifier
-                identifier_lower = task_identifier.lower().strip()
-                
-                # Try exact match first
-                for task in pending_tasks:
-                    if task['text'].lower().strip() == identifier_lower:
-                        task_manager.toggle_task(task['id'])
-                        return f"✅ Completed: {task['text']}"
-                
-                # Try substring match
-                for task in pending_tasks:
-                    task_text_lower = task['text'].lower()
-                    # Check if identifier is in task or task is in identifier
-                    if identifier_lower in task_text_lower or task_text_lower in identifier_lower:
-                        task_manager.toggle_task(task['id'])
-                        return f"✅ Completed: {task['text']}"
-                
-                # Try word-based matching
-                identifier_words = set(identifier_lower.split())
-                best_match = None
-                best_score = 0
-                
-                for task in pending_tasks:
-                    task_words = set(task['text'].lower().split())
-                    common_words = identifier_words & task_words
-                    score = len(common_words)
-                    
-                    if score > best_score and score >= 1:  # At least 1 word must match
-                        best_score = score
-                        best_match = task
-                
-                if best_match:
-                    task_manager.toggle_task(best_match['id'])
-                    return f"✅ Completed: {best_match['text']}"
-                
-                # No match found
                 task_list = '\n'.join([f"- {t['text']}" for t in pending_tasks[:5]])
-                return f"❌ Could not find a task matching '{task_identifier}'.\n\nYour pending tasks:\n{task_list}"
+                return f"❌ Could not find task '{task_identifier}'.\n\nYour pending tasks:\n{task_list}"
                 
             except Exception as e:
+                print(f"EXCEPTION IN COMPLETE_TASK: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 return f"Error completing task: {str(e)}"
         
         # Return list of tools
-        return [add_task, complete_task]
+        return [list_tasks, add_task, complete_task]
     
     async def process_request(self, user_input: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         """
@@ -213,22 +211,39 @@ Otherwise, ALWAYS execute the action with the appropriate tool."""
         """
         try:
             # Log the complete system prompt
-            print(f"\n{'='*50}")
-            print(f"SENDING TO LLM (GPT-4o-mini):")
-            print(f"System Prompt:\n{self.system_prompt}")
-            print(f"\nUser Input: '{user_input}'")
-            print(f"Available Tools: {[tool.name for tool in self.tools]}")
-            print(f"{'='*50}\n")
+            print(f"\n{'='*100}")
+            print(f"!!! AGENT SERVICE - PROCESSING USER REQUEST !!!")
+            print(f"USER INPUT: '{user_input}'")
+            print(f"AVAILABLE TOOLS FOR LLM TO CALL: {[tool.name for tool in self.tools]}")
+            print(f"\nSYSTEM PROMPT SENT TO GPT-5-NANO:")
+            print("-"*50)
+            print(self.system_prompt)
+            print("-"*50)
+            print(f"{'='*100}\n")
             
-            # Invoke the agent
+            # Invoke the agent with just the user input
+            # The agent will use tools to get what it needs
             result = await self.agent.ainvoke({
                 "messages": [{"role": "user", "content": user_input}]
             })
             
-            print(f"\n{'='*50}")
-            print(f"LLM RESPONSE:")
-            print(f"Full result: {result}")
-            print(f"{'='*50}\n")
+            print(f"\n{'='*100}")
+            print(f"!!! LLM RESPONSE - WHAT GPT-5-NANO DECIDED TO DO !!!")
+            
+            # Log what the LLM decided
+            for msg in result.get("messages", []):
+                msg_type = getattr(msg, 'type', 'unknown')
+                if msg_type == 'ai' and hasattr(msg, 'tool_calls') and msg.tool_calls:
+                    print(f"LLM DECIDED TO CALL TOOLS:")
+                    for tool_call in msg.tool_calls:
+                        print(f"  - Tool: {tool_call.get('name', 'unknown')}")
+                        print(f"    Args: {tool_call.get('args', {})}")
+                elif msg_type == 'tool':
+                    print(f"TOOL RESPONSE: {msg.content}")
+                elif msg_type == 'ai':
+                    print(f"LLM TEXT RESPONSE: {msg.content}")
+            
+            print(f"{'='*100}\n")
             
             # Extract the response and tool calls
             tool_calls = []

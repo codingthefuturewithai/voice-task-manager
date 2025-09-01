@@ -80,16 +80,9 @@ class HelpService:
         if mode == 'command' and self.agent_service is not None:
             print(f"DEBUG: Routing to agent service for command: {user_question}")
             try:
-                # Build context for the agent
-                context = {
-                    "current_tasks": current_tasks or [],
-                    "task_count": len(current_tasks) if current_tasks else 0,
-                    "knowledge_base_available": True,
-                    "ui_reference_available": bool(self.ui_reference)
-                }
-                
                 # Process through the agent (synchronously for Streamlit)
-                result = self.agent_service.process_request_sync(user_question, context)
+                # No context needed - agent will use tools to get what it needs
+                result = self.agent_service.process_request_sync(user_question, None)
                 
                 if result.get("success"):
                     response_text = result.get("response", "")
@@ -196,8 +189,7 @@ class HelpService:
                     {"role": "system", "content": "You are a helpful Voice Task Manager assistant. Provide clear, actionable advice."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=400
+                max_completion_tokens=400
             )
             
             return response.choices[0].message.content.strip()

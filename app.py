@@ -8,9 +8,7 @@ from pathlib import Path
 from services.whisper_service import WhisperService
 from services.llm_service import LLMService
 from services.task_manager import TaskManager
-from services.command_router import CommandRouter
 from services.tts_service import TTSService
-from services.task_matcher import TaskMatcher
 from services.help_service import HelpService
 
 load_dotenv()
@@ -31,9 +29,7 @@ def init_services():
     whisper = WhisperService(api_key)
     llm = LLMService(api_key)
     task_manager = TaskManager()
-    command_router = CommandRouter(llm, task_manager)
     tts_service = TTSService()
-    task_matcher = TaskMatcher()
     
     # Try to initialize the agent service (optional enhancement)
     agent_service = None
@@ -48,7 +44,7 @@ def init_services():
     # Pass agent_service to HelpService (will use if available)
     help_service = HelpService(llm, agent_service)
     
-    return whisper, llm, task_manager, command_router, tts_service, task_matcher, help_service
+    return whisper, llm, task_manager, tts_service, help_service
 
 def render_task(task, task_manager, tts_service):
     """Render a single task with enhanced UI and editing capabilities"""
@@ -159,7 +155,7 @@ def main():
     st.title("🎤 Voice Task Manager")
     st.markdown("Speak to manage your tasks - braindump, organize, and track!")
     
-    whisper, llm, task_manager, command_router, tts_service, task_matcher, help_service = init_services()
+    whisper, llm, task_manager, tts_service, help_service = init_services()
     
     # Initialize session state
     if 'mode' not in st.session_state:
@@ -273,12 +269,11 @@ def main():
                     st.session_state.last_help_question_processed = help_transcription
                     
                     # Process based on mode
-                    current_tasks = task_manager.get_tasks()
                     with st.spinner("Processing..."):
                         # Pass mode to help service
                         help_response = help_service.get_help_response(
                             help_transcription, 
-                            current_tasks,
+                            None,  # No context needed - LLM will use tools
                             mode=st.session_state.help_mode
                         )
                         st.session_state.help_response = help_response
@@ -444,27 +439,9 @@ def main():
                                 st.write(f"• {priority_emoji} {category_emoji} {task.get('text', task)}")
                     else:
                         print(f"DEBUG: Processing in COMMAND mode")
-                        # Command mode
-                        with st.spinner("Processing command..."):
-                            current_tasks = task_manager.get_tasks()
-                            result = command_router.process_command(transcription, 'command', current_tasks)
-                            st.session_state.last_command_result = result
-                            print(f"DEBUG: Command result: {result}")
-                        
-                        # Display command result
-                        if result['action_taken']:
-                            st.success(result['message'])
-                            tts_service.speak_confirmation('task_updated' if result['intent'] == 'modify' else 'task_added')
-                        elif result['intent'] == 'query':
-                            st.info(result['message'])
-                            tts_service.speak_query_response(result['message'])
-                        else:
-                            st.warning(result['message'])
-                            if result['confidence'] < 0.7:
-                                tts_service.speak_confirmation('low_confidence')
-                        
-                        # Show confidence score
-                        st.metric("Confidence", f"{result['confidence']:.1%}")
+                        # Command mode - should use AI Assistant panel instead
+                        st.warning("⚠️ Command mode: Please use the AI Assistant panel (sidebar) for commands")
+                        st.info("💡 Toggle the Help Panel and select 'Command Mode' to execute commands")
                         
                         # Clear transcription but keep audio hash to prevent reprocessing
                         st.session_state.transcription = None
