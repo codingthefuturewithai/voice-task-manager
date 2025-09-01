@@ -189,7 +189,7 @@ class HelpService:
                     {"role": "system", "content": "You are a helpful Voice Task Manager assistant. Provide clear, actionable advice."},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=400
+                max_completion_tokens=10000
             )
             
             return response.choices[0].message.content.strip()
