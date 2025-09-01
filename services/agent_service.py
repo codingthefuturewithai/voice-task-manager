@@ -60,13 +60,15 @@ Always execute actions rather than explaining how to do them."""
         @tool
         def list_tasks(show_completed: bool = False) -> str:
             """
-            List all tasks in the system.
+            List all tasks in the system with their IDs.
+            
+            IMPORTANT: This returns task IDs that you need for other operations like toggle_task.
             
             Args:
                 show_completed: Whether to include completed tasks (default: False, only shows pending)
             
             Returns:
-                A formatted list of tasks with their status
+                A formatted list of tasks with their IDs, status, text, and priority
             """
             print(f"\n{'='*50}")
             print(f"LIST_TASKS TOOL CALLED BY LLM")
@@ -84,10 +86,11 @@ Always execute actions rather than explaining how to do them."""
                 return "No tasks found."
             
             result = "Tasks:\n"
-            for task in task_list:
+            for i, task in enumerate(task_list, 1):
                 status = "✅" if task.get('completed', False) else "⬜"
-                priority = task.get('priority', 'medium')
-                result += f"{status} {task['text']} (Priority: {priority})\n"
+                priority = task.get('priority', 'medium') or 'medium'  # Handle None
+                category = task.get('category', 'none') or 'none'  # Handle None
+                result += f"{i}. {status} [{task['id']}] {task['text']} (Priority: {priority}, Category: {category})\n"
             
             return result
         
@@ -151,52 +154,347 @@ Always execute actions rather than explaining how to do them."""
                 return f"Error adding task: {str(e)}"
         
         @tool
-        def complete_task(task_identifier: str) -> str:
+        def complete_task(task_id: str) -> str:
             """
-            Mark an existing task as completed.
+            Mark a task as complete or incomplete by toggling its status.
+            
+            IMPORTANT: You must first call list_tasks to get the task IDs, then use the exact ID here.
             
             Args:
-                task_identifier: The EXACT text of the task to mark as complete
+                task_id: The UUID of the task (e.g., '5e1986b6-7e1f-445f-8ea0-b0be817ba232')
+                        This is the 'id' field shown in brackets when you list tasks.
             
             Returns:
-                Success message if task was marked complete, or error if not found
+                Success message confirming the action
+                
+            Example workflow:
+                1. User says "mark buy milk as complete"
+                2. Call list_tasks() to see all tasks with their IDs
+                3. Find the task with text "buy milk" and note its ID in brackets
+                4. Call complete_task with that ID
             """
             print(f"\n{'='*50}")
             print(f"COMPLETE_TASK TOOL CALLED BY LLM")
-            print(f"Received task to complete: '{task_identifier}'")
+            print(f"task_id: {task_id}")
             print(f"{'='*50}\n")
             
-            try:
-                tasks = task_manager.get_tasks()
-                
-                # Find exact match
-                for task in tasks:
-                    if task['text'].lower() == task_identifier.lower() and not task.get('completed', False):
-                        print(f"FOUND TASK: '{task['text']}' (ID: {task['id']})")
-                        print(f"MARKING TASK AS COMPLETE...")
-                        task_manager.toggle_task(task['id'])
-                        print(f"SUCCESS! Task marked as complete.")
-                        return f"✅ Completed: {task['text']}"
-                
-                # No exact match found
-                pending_tasks = [t for t in tasks if not t.get('completed', False)]
-                print(f"NO EXACT MATCH for '{task_identifier}'")
-                print(f"Available tasks: {[t['text'] for t in pending_tasks]}")
-                
-                if not pending_tasks:
-                    return "❌ No pending tasks to complete."
-                
-                task_list = '\n'.join([f"- {t['text']}" for t in pending_tasks[:5]])
-                return f"❌ Could not find task '{task_identifier}'.\n\nYour pending tasks:\n{task_list}"
-                
-            except Exception as e:
-                print(f"EXCEPTION IN COMPLETE_TASK: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                return f"Error completing task: {str(e)}"
+            # Get task info before toggle for better message
+            tasks = task_manager.get_tasks()
+            task = next((t for t in tasks if t['id'] == task_id), None)
+            
+            if not task:
+                return f"❌ Error: No task found with ID '{task_id}'"
+            
+            # Toggle the task
+            task_manager.toggle_task(task_id)
+            
+            # Get updated status
+            was_completed = task.get('completed', False)
+            new_status = "completed ✅" if not was_completed else "incomplete ⬜"
+            
+            print(f"TASK TOGGLED: '{task['text']}' is now {new_status}")
+            return f"Task '{task['text']}' is now {new_status}"
         
-        # Return list of tools
-        return [list_tasks, add_task, complete_task]
+        @tool
+        def update_task(task_id: str, text: Optional[str] = None, priority: Optional[str] = None, category: Optional[str] = None) -> str:
+            """
+            Update an existing task's properties.
+            
+            You can update the text, priority, category, or any combination of these.
+            First call list_tasks to get the task ID you want to update.
+            
+            Args:
+                task_id: The UUID of the task to update (from list_tasks output)
+                text: New text/description for the task (optional)
+                priority: New priority level - must be 'high', 'medium', or 'low' (optional)
+                category: New category - must be 'client', 'business', or 'personal' (optional)
+            
+            Returns:
+                Success message confirming what was updated
+                
+            Examples:
+                - "Change priority of task X to high" → update_task(id, priority="high")
+                - "Move task Y to client category" → update_task(id, category="client")
+                - "Rename task Z to 'Review contracts'" → update_task(id, text="Review contracts")
+            """
+            print(f"\n{'='*50}")
+            print(f"UPDATE_TASK TOOL CALLED BY LLM")
+            print(f"task_id: {task_id}")
+            print(f"text: {text}")
+            print(f"priority: {priority}")
+            print(f"category: {category}")
+            print(f"{'='*50}\n")
+            
+            # Build kwargs for update
+            kwargs = {}
+            if text is not None:
+                kwargs['text'] = text
+            if priority is not None:
+                if priority not in ['high', 'medium', 'low']:
+                    return f"❌ Error: Priority must be 'high', 'medium', or 'low', not '{priority}'"
+                kwargs['priority'] = priority
+            if category is not None:
+                if category not in ['client', 'business', 'personal']:
+                    return f"❌ Error: Category must be 'client', 'business', or 'personal', not '{category}'"
+                kwargs['category'] = category
+            
+            if not kwargs:
+                return "❌ Error: No updates specified. Provide at least one field to update."
+            
+            # Get task info for better message
+            tasks = task_manager.get_tasks()
+            task = next((t for t in tasks if t['id'] == task_id), None)
+            
+            if not task:
+                return f"❌ Error: No task found with ID '{task_id}'"
+            
+            success = task_manager.update_task(task_id, **kwargs)
+            
+            if success:
+                updates = []
+                if text: updates.append(f"text to '{text}'")
+                if priority: updates.append(f"priority to '{priority}'")
+                if category: updates.append(f"category to '{category}'")
+                print(f"TASK UPDATED: '{task['text']}' - {', '.join(updates)}")
+                return f"✅ Updated '{task['text']}': {', '.join(updates)}"
+            else:
+                return f"❌ Error: Failed to update task '{task['text']}'"
+        
+        @tool
+        def delete_task(task_id: str) -> str:
+            """
+            Permanently delete a task from the system.
+            
+            WARNING: This action cannot be undone. The task will be permanently removed.
+            First call list_tasks to get the task ID you want to delete.
+            
+            Args:
+                task_id: The UUID of the task to delete (from list_tasks output)
+            
+            Returns:
+                Success message confirming deletion
+                
+            Example:
+                User: "Delete the task about reviewing contracts"
+                1. Call list_tasks() to find the task
+                2. Call delete_task with the task's ID
+            """
+            print(f"\n{'='*50}")
+            print(f"DELETE_TASK TOOL CALLED BY LLM")
+            print(f"task_id: {task_id}")
+            print(f"{'='*50}\n")
+            
+            # Get task info before deletion for confirmation message
+            tasks = task_manager.get_tasks()
+            task = next((t for t in tasks if t['id'] == task_id), None)
+            
+            if not task:
+                return f"❌ Error: No task found with ID '{task_id}'"
+            
+            task_text = task['text']
+            task_manager.delete_task(task_id)
+            
+            print(f"TASK DELETED: '{task_text}'")
+            return f"✅ Task deleted: '{task_text}'"
+        
+        @tool
+        def get_tasks_by_priority(priority: str) -> str:
+            """
+            Get all tasks filtered by a specific priority level.
+            
+            Args:
+                priority: Priority level to filter by - must be 'high', 'medium', or 'low'
+            
+            Returns:
+                Formatted list of tasks with the specified priority
+                
+            Examples:
+                - "Show me all high priority tasks" → get_tasks_by_priority("high")
+                - "What are my low priority items?" → get_tasks_by_priority("low")
+            """
+            print(f"\n{'='*50}")
+            print(f"GET_TASKS_BY_PRIORITY TOOL CALLED BY LLM")
+            print(f"priority: {priority}")
+            print(f"{'='*50}\n")
+            
+            if priority not in ['high', 'medium', 'low']:
+                return f"❌ Error: Priority must be 'high', 'medium', or 'low', not '{priority}'"
+            
+            tasks = task_manager.get_tasks_by_priority(priority)
+            
+            if not tasks:
+                return f"No {priority} priority tasks found."
+            
+            result = f"{priority.capitalize()} Priority Tasks:\n"
+            for i, task in enumerate(tasks, 1):
+                status = "✅" if task.get('completed', False) else "⬜"
+                category = task.get('category', 'none')
+                result += f"{i}. {status} [{task['id']}] {task['text']} (Category: {category})\n"
+            
+            print(f"FOUND {len(tasks)} {priority} priority tasks")
+            return result
+        
+        @tool
+        def get_tasks_by_category(category: str) -> str:
+            """
+            Get all tasks filtered by a specific category.
+            
+            Args:
+                category: Category to filter by - must be 'client', 'business', or 'personal'
+            
+            Returns:
+                Formatted list of tasks in the specified category
+                
+            Examples:
+                - "Show me all client tasks" → get_tasks_by_category("client")
+                - "What business tasks do I have?" → get_tasks_by_category("business")
+                - "List my personal items" → get_tasks_by_category("personal")
+            """
+            print(f"\n{'='*50}")
+            print(f"GET_TASKS_BY_CATEGORY TOOL CALLED BY LLM")
+            print(f"category: {category}")
+            print(f"{'='*50}\n")
+            
+            if category not in ['client', 'business', 'personal']:
+                return f"❌ Error: Category must be 'client', 'business', or 'personal', not '{category}'"
+            
+            tasks = task_manager.get_tasks_by_category(category)
+            
+            if not tasks:
+                return f"No {category} tasks found."
+            
+            result = f"{category.capitalize()} Tasks:\n"
+            for i, task in enumerate(tasks, 1):
+                status = "✅" if task.get('completed', False) else "⬜"
+                priority = task.get('priority', 'medium')
+                result += f"{i}. {status} [{task['id']}] {task['text']} (Priority: {priority})\n"
+            
+            print(f"FOUND {len(tasks)} {category} tasks")
+            return result
+        
+        @tool
+        def get_pending_tasks() -> str:
+            """
+            Get all incomplete/pending tasks that still need to be done.
+            
+            This is useful for seeing what work remains without the clutter of completed items.
+            
+            Returns:
+                Formatted list of all incomplete tasks with their IDs, priorities, and categories
+                
+            Example:
+                - "What do I still need to do?" → get_pending_tasks()
+                - "Show me incomplete tasks" → get_pending_tasks()
+            """
+            print(f"\n{'='*50}")
+            print(f"GET_PENDING_TASKS TOOL CALLED BY LLM")
+            print(f"{'='*50}\n")
+            
+            tasks = task_manager.get_pending_tasks()
+            
+            if not tasks:
+                return "🎉 No pending tasks! Everything is complete."
+            
+            result = "Pending Tasks:\n"
+            for i, task in enumerate(tasks, 1):
+                priority = task.get('priority', 'medium')
+                category = task.get('category', 'none')
+                result += f"{i}. ⬜ [{task['id']}] {task['text']} (Priority: {priority}, Category: {category})\n"
+            
+            print(f"FOUND {len(tasks)} pending tasks")
+            return result
+        
+        @tool
+        def get_completed_tasks() -> str:
+            """
+            Get all completed tasks.
+            
+            This shows tasks that have been marked as done, useful for reviewing accomplishments.
+            
+            Returns:
+                Formatted list of all completed tasks with their completion status
+                
+            Example:
+                - "What have I completed?" → get_completed_tasks()
+                - "Show me finished tasks" → get_completed_tasks()
+            """
+            print(f"\n{'='*50}")
+            print(f"GET_COMPLETED_TASKS TOOL CALLED BY LLM")
+            print(f"{'='*50}\n")
+            
+            tasks = task_manager.get_completed_tasks()
+            
+            if not tasks:
+                return "No completed tasks yet."
+            
+            result = "Completed Tasks:\n"
+            for i, task in enumerate(tasks, 1):
+                priority = task.get('priority', 'medium')
+                category = task.get('category', 'none')
+                result += f"{i}. ✅ [{task['id']}] {task['text']} (Priority: {priority}, Category: {category})\n"
+            
+            print(f"FOUND {len(tasks)} completed tasks")
+            return result
+        
+        @tool
+        def get_task_stats() -> str:
+            """
+            Get comprehensive statistics about all tasks.
+            
+            Provides a summary including total tasks, completion status, priority breakdown,
+            and category distribution. Useful for getting a high-level overview.
+            
+            Returns:
+                Formatted statistics summary with counts and percentages
+                
+            Example:
+                - "Show me task statistics" → get_task_stats()
+                - "How many tasks do I have?" → get_task_stats()
+                - "Give me a task summary" → get_task_stats()
+            """
+            print(f"\n{'='*50}")
+            print(f"GET_TASK_STATS TOOL CALLED BY LLM")
+            print(f"{'='*50}\n")
+            
+            stats = task_manager.get_stats()
+            
+            # Calculate completion percentage
+            completion_pct = 0
+            if stats['total'] > 0:
+                completion_pct = (stats['completed'] / stats['total']) * 100
+            
+            result = "📊 Task Statistics:\n"
+            result += f"\nOverall:\n"
+            result += f"  • Total tasks: {stats['total']}\n"
+            result += f"  • Completed: {stats['completed']} ({completion_pct:.1f}%)\n"
+            result += f"  • Pending: {stats['pending']}\n"
+            
+            result += f"\nBy Priority:\n"
+            result += f"  • High: {stats['high_priority']}\n"
+            result += f"  • Medium: {stats['medium_priority']}\n"
+            result += f"  • Low: {stats['low_priority']}\n"
+            
+            result += f"\nBy Category:\n"
+            result += f"  • Client: {stats['client_tasks']}\n"
+            result += f"  • Business: {stats['business_tasks']}\n"
+            result += f"  • Personal: {stats['personal_tasks']}\n"
+            
+            print(f"STATS RETURNED: {stats['total']} total, {stats['completed']} completed")
+            return result
+        
+        # Return list of tools - now includes all task management capabilities
+        return [
+            list_tasks, 
+            add_task, 
+            complete_task,
+            update_task,
+            delete_task,
+            get_tasks_by_priority,
+            get_tasks_by_category,
+            get_pending_tasks,
+            get_completed_tasks,
+            get_task_stats
+        ]
     
     async def process_request(self, user_input: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         """
