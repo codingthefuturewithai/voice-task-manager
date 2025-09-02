@@ -1,323 +1,407 @@
 {
+  "discovery_metadata": {
+    "discovered_at": "2025-01-02T10:07:00Z",
+    "technology_stack": {
+      "framework": "Streamlit",
+      "language": "Python",
+      "ui_library": "streamlit",
+      "backend_services": [
+        "OpenAI API (Whisper, GPT)",
+        "LangChain/LangGraph (Agent framework)"
+      ],
+      "data_persistence": "JSON file (tasks.json)"
+    },
+    "entry_point": "app.py",
+    "main_function": "main()"
+  },
   "application": {
-    "name": "Voice Task Manager",
-    "description": "A voice-controlled task management application using AI",
-    "version": "2.0",
-    "url": "http://localhost:8502"
-  },
-  "layout": {
-    "structure": "Two-column layout with sidebar",
-    "sidebar": {
-      "location": "Left side of screen",
-      "collapsible": true,
-      "contains": "Help & Assistance panel"
-    },
-    "main_area": {
-      "columns": ["Voice Input (left, 1/3 width)", "Task List (right, 2/3 width)"]
+    "title": "🎤 Voice Task Manager",
+    "description": "Voice-enabled task management system with AI processing",
+    "page_config": {
+      "page_title": "Voice Task Manager",
+      "page_icon": "🎤",
+      "layout": "wide"
     }
   },
-  "ui_elements": {
-    "sidebar": {
-      "help_panel": {
-        "name": "Help & Assistance",
-        "location": "Left sidebar",
-        "icon": "❓",
-        "description": "AI-powered help system for the application",
-        "components": {
-          "status_indicators": {
-            "type": "status_display",
-            "shows": ["✅ Response ready", "🤔 Processing...", "💡 Ready for questions"],
-            "location": "Top of help panel"
+  "interactive_elements": {
+    "sidebar_ai_assistant": {
+      "type": "collapsible_panel",
+      "location": "st.sidebar",
+      "capabilities": {
+        "toggle_panel": {
+          "element": "st.button",
+          "key": "toggle_help",
+          "action": "Opens/closes AI assistant panel",
+          "state_modified": "help_panel_open"
+        },
+        "mode_selection": {
+          "elements": ["st.button (mode_question)", "st.button (mode_command)"],
+          "actions": {
+            "question_mode": "Switch to Q&A mode for help",
+            "command_mode": "Switch to command execution mode"
           },
-          "voice_input": {
-            "type": "audio_input",
-            "label": "🎤 Ask with voice",
-            "description": "Click to record a voice question for the AI assistant",
-            "location": "Below status indicators"
-          },
-          "text_input": {
-            "type": "text_input",
-            "label": "💬 Or type your question",
-            "placeholder": "e.g., 'How do I add a task?' or 'What commands can I use?'",
-            "location": "Below voice input"
-          },
-          "answer_display": {
-            "type": "markdown_display",
-            "label": "Answer:",
-            "description": "Shows AI-generated help responses",
-            "location": "Below text input when response is available"
-          },
-          "action_buttons": {
-            "clear_answer": {
-              "type": "button",
-              "label": "Clear Answer",
-              "action": "Clears the current help response",
-              "location": "Below answer display"
+          "state_modified": "help_mode"
+        },
+        "voice_input": {
+          "element": "st.audio_input",
+          "key_pattern": "help_audio_{version}",
+          "workflow": [
+            "Record audio",
+            "Transcribe via WhisperService",
+            "Process via HelpService/AgentService",
+            "Execute tools if in command mode",
+            "Display response"
+          ],
+          "can_modify": "Tasks (in command mode)"
+        },
+        "text_input_form": {
+          "element": "st.form with st.text_input",
+          "key": "help_text_form",
+          "workflow": [
+            "Type text command/question",
+            "Submit form",
+            "Process via HelpService/AgentService",
+            "Execute tools if in command mode"
+          ],
+          "can_modify": "Tasks (in command mode)"
+        },
+        "clear_button": {
+          "element": "st.button",
+          "key": "clear_response",
+          "action": "Clears transcription and response",
+          "state_modified": ["help_response", "help_question", "help_audio_version"]
+        }
+      },
+      "limitations": {
+        "audio_processing": "Requires rerun after processing",
+        "form_submission": "Form clears on submit",
+        "mode_persistence": "Mode selection persists in session state"
+      }
+    },
+    "main_mode_selector": {
+      "type": "radio_selector",
+      "location": "main content area",
+      "element": "st.radio",
+      "key": "mode_selector",
+      "options": ["🧠 Brain Dump", "🎯 Command"],
+      "capabilities": {
+        "mode_switching": {
+          "action": "Switches between braindump and command modes",
+          "state_modified": ["mode", "last_mode"],
+          "side_effects": "Clears audio state when mode changes"
+        }
+      },
+      "actual_behavior": "Command mode redirects to sidebar AI Assistant"
+    },
+    "voice_input_section": {
+      "type": "audio_recorder",
+      "location": "column 1 of main content",
+      "element": "st.audio_input",
+      "capabilities": {
+        "audio_recording": {
+          "workflow": [
+            "Click to record",
+            "Audio captured as bytes",
+            "Transcribed via WhisperService",
+            "Processed based on mode"
+          ]
+        },
+        "braindump_processing": {
+          "condition": "mode == 'braindump'",
+          "workflow": [
+            "LLMService.process_braindump()",
+            "Extract tasks with priorities/categories",
+            "Display task preview",
+            "Show 'Add to Task List' button"
+          ],
+          "can_create": "New tasks with text, priority, category"
+        },
+        "command_mode_behavior": {
+          "condition": "mode == 'command'",
+          "action": "Shows warning to use AI Assistant panel",
+          "reason": "Commands require AgentService tools"
+        },
+        "add_tasks_button": {
+          "element": "st.button",
+          "key": "add_tasks",
+          "condition": "processed_tasks != None",
+          "action": "Adds all processed tasks to TaskManager",
+          "state_modified": ["processed_tasks", "transcription"],
+          "triggers": "st.rerun()"
+        },
+        "clear_results_button": {
+          "element": "st.button",
+          "key": "clear_results",
+          "action": "Clears processing results",
+          "state_modified": ["processed_tasks", "transcription", "last_command_result"]
+        }
+      }
+    },
+    "quick_actions": {
+      "type": "action_buttons",
+      "location": "column 1 bottom",
+      "buttons": {
+        "clear_all": {
+          "element": "st.button",
+          "label": "Clear All Tasks",
+          "action": "task_manager.clear_all()",
+          "can_delete": "All tasks",
+          "confirmation": "None (immediate)",
+          "triggers": "st.rerun()"
+        },
+        "auto_prioritize": {
+          "element": "st.button",
+          "label": "Auto-Prioritize",
+          "action": "llm.prioritize_tasks(current_tasks)",
+          "can_modify": "Task priorities via AI",
+          "workflow": [
+            "Get all tasks",
+            "Send to LLM for analysis",
+            "Update priorities based on AI response"
+          ]
+        }
+      }
+    },
+    "task_list_filters": {
+      "type": "dropdown_filters",
+      "location": "column 2 top",
+      "elements": {
+        "priority_filter": {
+          "element": "st.selectbox",
+          "key": "priority_filter",
+          "options": ["All", "High", "Medium", "Low"],
+          "action": "Filters displayed tasks by priority"
+        },
+        "category_filter": {
+          "element": "st.selectbox",
+          "key": "category_filter",
+          "options": ["All", "Client", "Business", "Personal"],
+          "action": "Filters displayed tasks by category"
+        },
+        "status_filter": {
+          "element": "st.selectbox",
+          "key": "status_filter",
+          "options": ["All", "Pending", "Completed"],
+          "action": "Filters displayed tasks by completion status"
+        }
+      },
+      "behavior": "Filters apply cumulatively in real-time"
+    },
+    "task_item_row": {
+      "type": "composite_row",
+      "location": "column 2 task list",
+      "elements": {
+        "completion_checkbox": {
+          "element": "st.checkbox",
+          "key_pattern": "check_{task_id}",
+          "action": "Toggles task completion",
+          "workflow": [
+            "Check state change",
+            "If changed, call task_manager.toggle_task()",
+            "Updates completed status and timestamp"
+          ],
+          "can_modify": "Task completed status"
+        },
+        "edit_button": {
+          "element": "st.button",
+          "key_pattern": "edit_btn_{task_id}",
+          "icon": "✏️",
+          "action": "Enters edit mode",
+          "state_modified": "edit_{task_id}",
+          "triggers": "Row switches to edit interface"
+        },
+        "edit_mode_interface": {
+          "condition": "st.session_state[edit_{task_id}] == True",
+          "elements": {
+            "text_input": {
+              "element": "st.text_input",
+              "key_pattern": "text_{task_id}",
+              "initial_value": "Current task text",
+              "can_modify": "Task text content"
             },
-            "reset_all": {
-              "type": "button",
-              "label": "Reset All",
-              "action": "Clears both question and answer",
-              "location": "Next to Clear Answer button"
+            "save_button": {
+              "element": "st.button",
+              "key_pattern": "save_{task_id}",
+              "icon": "💾",
+              "action": "task_manager.update_task(task_id, text=new_text)",
+              "state_modified": "edit_{task_id} = False",
+              "can_modify": "Task text permanently"
+            },
+            "cancel_button": {
+              "element": "st.button",
+              "key_pattern": "cancel_{task_id}",
+              "icon": "❌",
+              "action": "Cancels edit without saving",
+              "state_modified": "edit_{task_id} = False"
             }
-          },
-          "quick_reference": {
-            "type": "expandable_section",
-            "label": "📋 Quick Reference",
-            "contains": "List of common voice commands",
-            "location": "Bottom of help panel"
-          },
-          "suggestions": {
-            "type": "expandable_section",
-            "label": "💡 Suggestions",
-            "contains": "Context-aware suggestions based on current tasks",
-            "location": "Below Quick Reference"
           }
+        },
+        "delete_button": {
+          "element": "st.button",
+          "key_pattern": "del_{task_id}",
+          "icon": "🗑️",
+          "action": "task_manager.delete_task(task_id)",
+          "can_delete": "Individual task",
+          "confirmation": "None (immediate)"
         }
+      },
+      "visual_indicators": {
+        "priority": "Emoji (🔴/🟡/🟢)",
+        "category": "Emoji (👤/💼/🏠)",
+        "completion": "Strikethrough text when completed"
       }
     },
-    "main_content": {
-      "mode_selector": {
-        "name": "Mode Selection",
-        "type": "radio_buttons",
-        "location": "Top of main content area",
-        "label": "🎯 Mode Selection",
-        "options": [
-          {
-            "value": "braindump",
-            "label": "🧠 Brain Dump",
-            "description": "Extract multiple tasks from free-form speech",
-            "default": true
-          },
-          {
-            "value": "command",
-            "label": "🎯 Command",
-            "description": "Execute specific actions on existing tasks"
-          }
-        ],
-        "behavior": "Switching modes clears the current audio processing state"
-      },
-      "left_column": {
-        "name": "Voice Input",
-        "width": "1/3 of main area",
-        "components": {
-          "header": {
-            "type": "header",
-            "text": "🎤 Voice Input",
-            "location": "Top of left column"
-          },
-          "mode_instructions": {
-            "type": "info_box",
-            "dynamic": true,
-            "braindump_mode": "🧠 Brain Dump Mode: Speak freely about multiple tasks and ideas. I'll extract and organize them for you.",
-            "command_mode": "🎯 Command Mode: Give specific commands like 'Add a task to review documentation' or 'Mark the first task as complete'.",
-            "location": "Below header"
-          },
-          "audio_recorder": {
-            "type": "audio_input",
-            "label": "Click to record your voice",
-            "location": "Below mode instructions",
-            "behavior": "Records audio until user stops, then automatically processes based on current mode"
-          },
-          "audio_playback": {
-            "type": "audio_player",
-            "appears": "After recording completes",
-            "location": "Below audio recorder"
-          },
-          "transcription_display": {
-            "type": "text_area",
-            "label": "Raw Transcription:",
-            "height": 100,
-            "appears": "After transcription completes",
-            "location": "Below audio playback"
-          },
-          "processed_tasks_display": {
-            "type": "task_list",
-            "label": "AI Processed Tasks:",
-            "appears": "In Brain Dump mode after processing",
-            "shows": "List of extracted tasks with priority and category indicators",
-            "location": "Below transcription"
-          },
-          "command_result": {
-            "type": "status_message",
-            "appears": "In Command mode after processing",
-            "types": ["success", "info", "warning"],
-            "location": "Below transcription"
-          },
-          "confidence_metric": {
-            "type": "metric",
-            "label": "Confidence",
-            "appears": "In Command mode",
-            "format": "percentage",
-            "location": "Below command result"
-          },
-          "add_tasks_button": {
-            "type": "button",
-            "label": "Add to Task List",
-            "appears": "In Brain Dump mode when tasks are processed",
-            "action": "Adds all processed tasks to the task list",
-            "location": "Below processed tasks display"
-          },
-          "confirmation_dialog": {
-            "type": "confirmation",
-            "appears": "For destructive operations in Command mode",
-            "buttons": ["✅ Confirm", "❌ Cancel"],
-            "location": "Below command result"
-          },
-          "clear_all_button": {
-            "type": "button",
-            "label": "Clear All Tasks",
-            "style": "secondary",
-            "action": "Removes all tasks from the list",
-            "location": "Bottom of left column",
-            "requires_confirmation": true
-          }
-        }
-      },
-      "right_column": {
-        "name": "Task List",
-        "width": "2/3 of main area",
-        "components": {
-          "header": {
-            "type": "header",
-            "text": "📋 Task List",
-            "location": "Top of right column"
-          },
-          "empty_state": {
-            "type": "info_message",
-            "text": "No tasks yet. Start speaking to add some!",
-            "appears": "When task list is empty",
-            "location": "Below header"
-          },
-          "task_item": {
-            "type": "composite_component",
-            "repeats": "For each task",
-            "layout": "5 columns",
-            "components": {
-              "checkbox": {
-                "column": 1,
-                "width": "1/10",
-                "type": "checkbox",
-                "label": "Done (hidden)",
-                "action": "Toggles task completion status",
-                "visual": "Checkbox that can be checked/unchecked"
-              },
-              "priority_indicator": {
-                "column": 2,
-                "width": "1/10",
-                "type": "emoji_display",
-                "values": {
-                  "high": "🔴",
-                  "medium": "🟡",
-                  "low": "🟢"
-                },
-                "description": "Shows task priority level"
-              },
-              "task_text": {
-                "column": 3,
-                "width": "6/10",
-                "type": "text_display_or_input",
-                "states": {
-                  "display": {
-                    "completed": "Strikethrough text (~~text~~)",
-                    "pending": "Normal text"
-                  },
-                  "edit": {
-                    "type": "text_input",
-                    "label": "Edit task:",
-                    "buttons": ["💾 Save", "❌ Cancel"]
-                  }
-                },
-                "edit_button": {
-                  "type": "button",
-                  "label": "✏️",
-                  "action": "Enters edit mode for the task"
-                }
-              },
-              "category_indicator": {
-                "column": 4,
-                "width": "1/10",
-                "type": "emoji_display",
-                "values": {
-                  "client": "👤",
-                  "business": "💼",
-                  "personal": "🏠",
-                  "none": "(empty)"
-                },
-                "description": "Shows task category"
-              },
-              "delete_button": {
-                "column": 5,
-                "width": "1/10",
-                "type": "button",
-                "label": "🗑️",
-                "action": "Deletes the task",
-                "requires_confirmation": false
-              }
-            }
-          },
-          "statistics": {
-            "type": "metrics_display",
-            "location": "Bottom of task list",
-            "shows": {
-              "total_tasks": {
-                "label": "Total Tasks",
-                "type": "number"
-              },
-              "completed": {
-                "label": "Completed",
-                "type": "number",
-                "layout": "left half"
-              },
-              "pending": {
-                "label": "Pending",
-                "type": "number",
-                "layout": "right half"
-              }
-            }
-          }
-        }
-      }
+    "statistics_display": {
+      "type": "metrics_dashboard",
+      "location": "column 2 bottom",
+      "element": "st.metric (multiple)",
+      "displays": [
+        "Total Tasks",
+        "Completed",
+        "Pending",
+        "High/Medium/Low Priority counts",
+        "Client/Business/Personal counts"
+      ],
+      "read_only": true
     }
   },
-  "interactions": {
-    "voice_commands": {
-      "brain_dump_mode": {
-        "description": "User speaks freely, system extracts multiple tasks",
-        "example": "I need to review the documentation, call the client about the project, and prepare for tomorrow's meeting"
-      },
-      "command_mode": {
-        "add": "Add a task to [description]",
-        "complete": "Mark [task reference] as complete/done",
-        "modify": "Change [task reference] to [new description]",
-        "delete": "Delete/Remove [task reference]",
-        "query": "Show me [filter criteria]",
-        "prioritize": "Set priority to high/medium/low"
-      }
-    },
-    "task_references": {
-      "description": "How users can refer to tasks in commands",
-      "methods": [
-        "Natural language: 'the documentation task'",
-        "Position: 'the first task', 'the last one'",
-        "Keywords: 'the one about testing'"
+  "backend_capabilities": {
+    "agent_service_tools": {
+      "description": "LangChain tools available in command mode",
+      "tools": [
+        {
+          "name": "list_tasks",
+          "can_read": "All tasks with IDs",
+          "parameters": ["show_completed: bool"]
+        },
+        {
+          "name": "add_task",
+          "can_create": "New tasks",
+          "parameters": ["text: str", "priority: str", "category: str"]
+        },
+        {
+          "name": "complete_task",
+          "can_modify": "Task completion status",
+          "parameters": ["task_id: str"]
+        },
+        {
+          "name": "update_task",
+          "can_modify": "Task text, priority, category",
+          "parameters": ["task_id: str", "text: str", "priority: str", "category: str"]
+        },
+        {
+          "name": "delete_task",
+          "can_delete": "Individual tasks",
+          "parameters": ["task_id: str"]
+        },
+        {
+          "name": "get_tasks_by_priority",
+          "can_read": "Filtered task lists",
+          "parameters": ["priority: str"]
+        },
+        {
+          "name": "get_tasks_by_category",
+          "can_read": "Filtered task lists",
+          "parameters": ["category: str"]
+        },
+        {
+          "name": "get_pending_tasks",
+          "can_read": "Incomplete tasks"
+        },
+        {
+          "name": "get_completed_tasks",
+          "can_read": "Completed tasks"
+        },
+        {
+          "name": "get_task_stats",
+          "can_read": "Task statistics"
+        }
       ]
     },
-    "visual_feedback": {
-      "recording": "Microphone icon changes color during recording",
-      "processing": "Spinner shows during transcription and AI processing",
-      "success": "Green success messages for completed actions",
-      "errors": "Red error messages for failed operations"
+    "task_manager": {
+      "description": "Core task management service",
+      "storage": "tasks.json file",
+      "operations": {
+        "add_task": "Creates new task with UUID",
+        "update_task": "Modifies task properties",
+        "toggle_task": "Switches completion status",
+        "delete_task": "Removes task permanently",
+        "clear_all": "Deletes all tasks",
+        "get_tasks": "Returns all tasks",
+        "get_stats": "Calculates statistics"
+      },
+      "task_schema": {
+        "id": "UUID string",
+        "text": "Task description",
+        "priority": "high/medium/low",
+        "category": "client/business/personal or null",
+        "completed": "boolean",
+        "created_at": "ISO timestamp",
+        "modified_at": "ISO timestamp",
+        "completed_at": "ISO timestamp or null"
+      }
     }
   },
-  "data_visibility": {
-    "task_properties": {
-      "visible": ["text", "priority", "category", "completion_status"],
-      "hidden": ["id", "created_at", "modified_at"]
+  "data_flow": {
+    "voice_to_task": [
+      "Audio input captured",
+      "WhisperService transcribes to text",
+      "LLMService processes text",
+      "Tasks extracted with metadata",
+      "User confirms addition",
+      "TaskManager persists to JSON",
+      "UI refreshes via st.rerun()"
+    ],
+    "command_execution": [
+      "User speaks/types command",
+      "HelpService routes to AgentService",
+      "AgentService invokes LangGraph agent",
+      "Agent uses tools to modify tasks",
+      "TaskManager updates JSON",
+      "UI refreshes automatically"
+    ],
+    "manual_editing": [
+      "User clicks edit button",
+      "Session state tracks edit mode",
+      "Text input appears",
+      "User modifies and saves",
+      "TaskManager updates task",
+      "Session state cleared",
+      "Row returns to display mode"
+    ]
+  },
+  "limitations_and_truths": {
+    "edit_capabilities": {
+      "what_can_be_edited": [
+        "Task text (via edit button)",
+        "Task completion status (via checkbox)",
+        "Task priority (via AI agent only)",
+        "Task category (via AI agent only)"
+      ],
+      "what_cannot_be_edited_directly": [
+        "Task priority (no UI dropdown in edit mode)",
+        "Task category (no UI dropdown in edit mode)",
+        "Task ID (immutable)",
+        "Timestamps (system-managed)"
+      ],
+      "workarounds": [
+        "Use AI Assistant in command mode to change priority/category",
+        "Delete and recreate task with different attributes"
+      ]
     },
-    "statistics": {
-      "always_visible": ["total", "completed", "pending"],
-      "contextual": ["high_priority_count", "category_breakdowns"]
+    "command_mode_redirect": {
+      "issue": "Main voice input command mode doesn't execute commands",
+      "reason": "Commands require AgentService tools",
+      "solution": "Must use sidebar AI Assistant panel"
+    },
+    "real_time_updates": {
+      "mechanism": "st.rerun() triggers full page refresh",
+      "limitation": "Not true real-time, requires full reload",
+      "state_persistence": "Session state maintains continuity"
+    },
+    "audio_processing": {
+      "limitation": "Audio hash prevents reprocessing same audio",
+      "workaround": "Version counter forces widget refresh"
     }
   }
 }
