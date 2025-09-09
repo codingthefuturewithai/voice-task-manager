@@ -3,7 +3,7 @@
 ## Getting Started
 
 ### First Time User
-1. **Open the application** at http://localhost:8502
+1. **Open the application** at http://localhost:8501
 2. **See the Help panel** in the left sidebar (collapsible)
 3. **Notice Mode Selection** at the top of main area (Brain Dump is default)
 4. **View empty task list** on the right with message "No tasks yet. Start speaking to add some!"

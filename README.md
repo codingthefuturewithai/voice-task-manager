@@ -1,6 +1,55 @@
 # 🎤 Voice Task Manager
 
-A powerful, AI-driven task management application that lets you manage your tasks through natural voice commands. Built with Streamlit and OpenAI's Whisper + GPT-4o-mini.
+A powerful, AI-driven task management application that lets you manage your tasks through natural voice commands. Built with Streamlit and OpenAI's Whisper + GPT-5 nano.
+
+## 🚀 Getting Started with AI Coding Assistants
+
+### Learn This Voice Task Manager Interactively
+
+This repository includes custom commands that help you explore and understand this specific application - its architecture, voice commands, UI workflows, and codebase - through interactive, step-by-step guidance with AI coding assistants.
+
+#### How to Use:
+
+**Claude Code:**
+- Type `/getting-started` and press Enter
+
+**Other AI Assistants (Cursor, etc.):**
+- Drag `.claude/commands/getting-started.md` into the chat window and press Enter
+
+#### Available Commands:
+
+```bash
+# Interactive guided tour - learn step by step
+/getting-started
+
+# Refresh the knowledge base from current code
+/refresh-knowledge
+
+# Discover UI elements and capabilities
+/refresh-ui-elements
+```
+
+#### What These Commands Do:
+
+- **`/getting-started`** - Interactive tutorial that teaches you:
+  - The architecture and how components work together
+  - All voice commands and capabilities
+  - How to explore the code
+  - Quick setup and your first voice command
+  
+- **`/refresh-knowledge`** - Analyzes the codebase and updates documentation:
+  - Ensures all documentation matches current implementation
+  - Updates architecture, commands, workflows, and setup guides
+  - Run this after making significant changes
+
+- **`/refresh-ui-elements`** - Discovers and documents UI capabilities:
+  - Maps all interactive elements
+  - Documents what each element actually does
+  - Saves to `.reference/ui_elements.json`
+
+### Traditional Setup
+
+If you're not using an AI coding assistant, follow the manual installation steps in the [Quick Start](#-quick-start) section below.
 
 ## ✨ Features
 
@@ -41,7 +90,9 @@ A powerful, AI-driven task management application that lets you manage your task
 - Completion tracking and progress metrics
 - Visual indicators for task status
 
-## 🚀 Quick Start
+## 📦 Quick Start
+
+> **Note:** If you're using an AI coding assistant (Claude Code, Cursor, etc.), run `/getting-started` for an interactive setup guide instead.
 
 ### Prerequisites
 - Python 3.11+
@@ -157,8 +208,8 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ### API Costs
 - **Whisper**: ~$0.006/minute of audio
-- **GPT-4o-mini**: ~$0.00015 per command
-- **Estimated daily cost** (heavy use): < $0.50
+- **GPT-5 nano**: 3x cheaper than GPT-4o-mini (which was ~$0.00015 per command)
+- **Estimated daily cost** (heavy use): < $0.20
 
 ## 🏗️ Architecture
 
@@ -233,6 +284,34 @@ If you encounter any issues:
 2. Verify your OpenAI API key is valid
 3. Ensure your microphone permissions are enabled
 4. Try rephrasing your voice commands
+
+## 📚 AI Assistant Integration
+
+This repository includes a `.claude/` directory with custom commands specifically designed to help you understand and work with this Voice Task Manager application using AI coding assistants (Claude Code, Cursor, and others):
+
+### Available Commands
+
+**Using in Claude Code:**
+- Type `/getting-started` (or any command) and press Enter
+
+**Using in Other Assistants:**
+- Drag the command file from `.claude/commands/` into the chat window and press Enter
+
+**Commands:**
+- **`getting-started.md`** - Interactive tutorial for learning the system
+- **`refresh-knowledge.md`** - Update all documentation from current code
+- **`refresh-ui-elements.md`** - Discover and document UI capabilities
+
+### Knowledge Base
+
+The `.reference/` directory contains comprehensive documentation:
+- `task-tracker-architecture.md` - System architecture and components
+- `voice-commands-guide.md` - All voice commands and patterns
+- `user_workflows.md` - UI interactions and workflows
+- `getting-started-guide.md` - Setup and usage instructions
+- `ui_elements.json` - Discovered UI capabilities
+
+These files are automatically maintained by the refresh commands to ensure documentation always matches the implementation.
 
 ---
 

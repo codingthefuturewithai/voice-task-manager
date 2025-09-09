@@ -5,3 +5,4 @@ __pycache__/
 .DS_Store
 venv/
 .streamlit/
+test_gpt5*.py
