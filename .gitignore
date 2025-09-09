@@ -6,3 +6,9 @@ __pycache__/
 venv/
 .streamlit/
 test_gpt5*.py
+test_ui.py
+*.png
+*PLAN*.md
+llm-*.md
+images/
+.playwright-mcp/
