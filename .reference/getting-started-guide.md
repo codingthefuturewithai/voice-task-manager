@@ -7,7 +7,7 @@
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # 2. Check dependencies
-pip list | grep streamlit
+pip list | grep -E "streamlit|openai|langgraph"
 
 # 3. Set OpenAI API key
 echo "OPENAI_API_KEY=your-key-here" > .env
@@ -22,9 +22,10 @@ streamlit run app.py
 
 ### Prerequisites
 - Python 3.11 or higher
-- Microphone access
-- OpenAI API key
-- Web browser
+- Microphone access for voice input
+- OpenAI API key (for Whisper and GPT-5 nano)
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- 500MB disk space for dependencies
 
 ### Installation Steps
 
@@ -45,200 +46,278 @@ streamlit run app.py
    pip install -r requirements.txt
    ```
 
+   Key dependencies installed:
+   - `streamlit>=1.47.0` - Web UI framework
+   - `openai>=1.12.0` - Whisper & GPT-5 nano API
+   - `langgraph>=0.6.6` - Agent framework (optional enhancement)
+   - `langchain-openai>=0.2.0` - LangChain integration
+   - `python-dotenv>=1.0.0` - Environment management
+
 4. **Configure API Key**
    ```bash
-   cp .env.example .env
-   # Edit .env and add your OPENAI_API_KEY
+   # Create .env file
+   echo "OPENAI_API_KEY=sk-your-api-key-here" > .env
    ```
+
+   Get your API key from: https://platform.openai.com/api-keys
 
 5. **Launch Application**
    ```bash
    streamlit run app.py
    ```
 
-## Understanding the Interface
+   The app will open at http://localhost:8501
 
-### Layout Overview
-```
-┌─────────────────────────────────────────────────────┐
-│  🎤 Voice Task Manager                              │
-├──────────────┬──────────────────────────────────────┤
-│              │                                      │
-│  Left Panel  │         Main Area                    │
-│              │                                      │
-│  - Mode      │    - Voice Recording Button          │
-│    Selector  │    - Transcription Display           │
-│              │    - Processed Tasks (Brain Dump)    │
-│  - Help      │    - Command Results (Command Mode)  │
-│    Panel     │                                      │
-│              ├──────────────────────────────────────┤
-│              │         Task List                    │
-│              │                                      │
-│              │    [✓] 🔴 💼 Task 1     [✏️] [🗑️]   │
-│              │    [ ] 🟡 👤 Task 2     [✏️] [🗑️]   │
-│              │    [ ] 🟢 🏠 Task 3     [✏️] [🗑️]   │
-│              │                                      │
-│              ├──────────────────────────────────────┤
-│              │         Statistics                   │
-│              │    Total: 3 | Pending: 2            │
-└──────────────┴──────────────────────────────────────┘
-```
+## First Use Tutorial
 
-### UI Elements
+### 1. Initial Interface
+When you first open the app, you'll see:
+- **Mode selector** (Brain Dump vs Command Mode)
+- **Task list** (initially empty)
+- **Voice recorder** button
+- **Help button** for guidance
 
-#### Mode Selector (Top Left)
-- **🧠 Brain Dump**: Speak freely about multiple tasks
-- **🎯 Command**: Give specific instructions
+### 2. Adding Your First Tasks
 
-#### Recording Button (Main Area)
-- **Click to start** recording
-- **Automatic stop** after silence
-- **Visual feedback** during recording
+#### Option A: Brain Dump Mode (Recommended for beginners)
+1. Select "Brain Dump Mode" from the dropdown
+2. Click the microphone button
+3. Speak naturally about your tasks:
+   > "I need to finish the quarterly report by Friday, call the dentist to schedule an appointment, and remember to pick up groceries on the way home"
+4. Click stop recording
+5. Watch as the AI extracts and organizes your tasks
 
-#### Task List (Right Side)
-- **Checkbox**: Mark complete/incomplete
-- **Priority**: 🔴 High, 🟡 Medium, 🟢 Low
-- **Category**: 👤 Client, 💼 Business, 🏠 Personal
-- **Edit Button** (✏️): Modify task text
-- **Delete Button** (🗑️): Remove task
+#### Option B: Command Mode
+1. Select "Command Mode"
+2. Click the microphone button
+3. Give a specific command:
+   > "Add a high priority task to review the contract"
+4. The task is added immediately
 
-#### Help Panel (Left Sidebar)
-- **Toggle button**: Show/hide help
-- **Voice input**: Ask questions by voice
-- **Text input**: Type questions
-- **AI responses**: Context-aware help
+### 3. Managing Tasks
 
-## Your First Voice Command
+#### Voice Commands
+- **Complete**: "Mark the dentist task as complete"
+- **Update**: "Change the report task to high priority"
+- **Delete**: "Remove the grocery task"
+- **Query**: "Show me all high priority tasks"
 
-### Step 1: Check Your Setup
-1. Ensure microphone is connected
-2. Browser has microphone permission
-3. You see "Ready to record" status
+#### UI Controls
+Each task card has:
+- ✅ **Checkbox** - Click to complete/uncomplete
+- ✏️ **Edit button** - Modify task text, priority, category
+- 🗑️ **Delete button** - Remove the task
+- 🔊 **Listen button** - Hear task details
 
-### Step 2: Try Brain Dump Mode (Default)
-1. Click "Click to record your voice"
-2. Say: "I need to review the monthly report, schedule a team meeting for Friday, and update the project timeline"
-3. Wait for processing
-4. Review extracted tasks
-5. Click "Add to Task List"
+### 4. Task Organization
 
-### Step 3: Try Command Mode
-1. Switch to "🎯 Command" mode
-2. Click record button
-3. Say: "Mark the monthly report as complete"
-4. Listen for voice confirmation
-5. See task updated in list
+#### Priorities
+Tasks are color-coded:
+- 🔴 **High Priority** - Red background
+- 🟡 **Medium Priority** - Yellow background
+- 🟢 **Low Priority** - Green background
 
-## Common Workflows
+#### Categories
+- **Client** - Client-related work
+- **Business** - Internal business tasks
+- **Personal** - Personal reminders
 
-### Morning Planning
-1. Start in Brain Dump mode
-2. Speak all tasks for the day
-3. Review and add to list
-4. Say "Prioritize my tasks"
-5. Start with highest priority
+#### Statistics
+The sidebar shows:
+- Total tasks
+- Completed count
+- Breakdown by priority
+- Breakdown by category
 
-### Quick Task Addition
-1. Switch to Command mode
-2. Say "Add a high priority task to call the client"
-3. Task appears immediately
+## Operating Modes Explained
 
-### Task Review
-1. Say "What should I work on next?"
-2. Listen to AI recommendation
-3. Say "Show me all client tasks"
-4. Review filtered list
+### Brain Dump Mode
+Best for:
+- Morning planning sessions
+- End-of-meeting action items
+- Stream-of-consciousness capture
+- Processing multiple tasks at once
 
-### End of Day
-1. Say "Show me completed tasks"
-2. Review accomplishments
-3. Say "What's left for tomorrow?"
-4. Plan next day
+How it works:
+1. Speak freely about all your tasks
+2. AI extracts individual action items
+3. Assigns priorities based on urgency words
+4. Categorizes based on context
+5. Presents organized task list for review
 
-## Voice Command Examples
+### Command Mode
+Best for:
+- Quick single task additions
+- Specific task updates
+- Targeted queries
+- Precise control
 
-### Essential Commands
-- "Add a task to [do something]"
-- "Mark [task name] as complete"
-- "Delete [task name]"
-- "What should I work on next?"
-- "Show me all high priority tasks"
+How it works:
+1. Give a specific command
+2. AI detects intent (add, complete, delete, etc.)
+3. Executes action immediately
+4. Provides voice confirmation
 
-### Advanced Commands
-- "Change [task] to high priority"
-- "Categorize [task] as client"
-- "Prioritize my tasks"
-- "How many tasks are pending?"
+## Advanced Features
+
+### Agent Service (Optional)
+If initialized, provides:
+- Automated task organization
+- Bulk operations
+- Advanced filtering
+- Task statistics
+- Multi-step automation
+
+Check if available:
+- Look for "✅ Agent service initialized" in console
+- Or check Help panel for agent status
+
+### Voice Feedback
+The app uses browser speech synthesis to:
+- Confirm task additions
+- Read task summaries
+- Provide status updates
+- Answer queries verbally
+
+### Task Persistence
+- Tasks saved to `tasks.json`
+- Automatic save on every change
+- Survives app restarts
+- Can be backed up or shared
 
 ## Troubleshooting
 
-### Microphone Issues
-- **No recording**: Check browser permissions
-- **Can't hear playback**: Check system volume
-- **Poor recognition**: Reduce background noise
+### Common Issues
 
-### API Issues
-- **No transcription**: Verify OpenAI API key
-- **Slow response**: Check internet connection
-- **Rate limits**: Wait a moment and retry
+#### "Microphone not working"
+1. Check browser permissions (Settings → Privacy → Microphone)
+2. Ensure microphone is not in use by another app
+3. Try refreshing the page
+4. Test microphone at: https://www.onlinemictest.com/
 
-### Task Management
-- **Can't find task**: Use more specific keywords
-- **Wrong task selected**: Be more descriptive
-- **Tasks not saving**: Check tasks.json permissions
+#### "OpenAI API key error"
+1. Verify `.env` file exists and contains:
+   ```
+   OPENAI_API_KEY=sk-your-actual-key
+   ```
+2. Check key validity at: https://platform.openai.com/api-keys
+3. Ensure key has Whisper and GPT-5 nano access
+4. Restart the app after updating `.env`
 
-## Tips for Success
+#### "Tasks not saving"
+1. Check `tasks.json` file permissions
+2. Ensure disk has available space
+3. Look for error messages in terminal
+4. Try creating `tasks.json` manually:
+   ```bash
+   echo "[]" > tasks.json
+   ```
 
-### Speaking Tips
-1. **Speak clearly** at normal pace
-2. **Wait for beep** before speaking
-3. **Pause briefly** between tasks in brain dump
-4. **Use natural language**, not commands
+#### "Agent service not available"
+This is optional - the app works fine without it.
+If you want to enable it:
+1. Ensure `langgraph` is installed
+2. Check for import errors in console
+3. Verify all agent dependencies are met
 
-### Organization Tips
-1. **Use categories** to group related tasks
-2. **Set priorities** for important items
-3. **Review regularly** to stay on track
-4. **Complete small tasks** first for momentum
+### Performance Tips
 
-### Efficiency Tips
-1. **Brain dump** at start of day
-2. **Command mode** for quick updates
-3. **Voice queries** for status checks
-4. **Keyboard shortcuts** when typing is faster
+1. **Voice Recognition**
+   - Speak clearly and at normal pace
+   - Minimize background noise
+   - Wait for recording indicator
+   - Keep commands under 30 seconds
+
+2. **Task Management**
+   - Use descriptive task names
+   - Leverage categories for organization
+   - Set appropriate priorities
+   - Regular cleanup of completed tasks
+
+3. **System Resources**
+   - Close unnecessary browser tabs
+   - Restart app if it becomes sluggish
+   - Monitor `tasks.json` file size
+   - Clear browser cache if needed
+
+## Keyboard Shortcuts
+
+While the app is primarily voice-driven, these shortcuts are available:
+- **Space** - Start/stop recording (when focused)
+- **Escape** - Cancel current operation
+- **Tab** - Navigate between UI elements
+- **Enter** - Confirm edits or actions
+
+## API Usage & Costs
+
+### OpenAI API Pricing (Approximate)
+- **Whisper**: ~$0.006 per minute of audio
+- **GPT-5 nano**: 3x cheaper than GPT-4o-mini
+- Average monthly cost for daily use: <$5
+
+### Usage Optimization
+- Use Brain Dump mode for multiple tasks (single API call)
+- Keep voice commands concise
+- Leverage the Help system instead of trial-and-error
+- Use UI controls when voice isn't needed
 
 ## Getting Help
 
 ### In-App Help
-1. Click "🔧 Toggle Help Panel"
-2. Ask questions like:
-   - "How do I add a task?"
-   - "What commands can I use?"
-   - "How do I change priority?"
-
-### Voice Help
-1. In help panel, click microphone
-2. Ask your question naturally
-3. Get spoken and written response
+- Click "Show Help" button
+- Say "What can I say?" for voice command help
+- Check the status messages for guidance
 
 ### Documentation
-- This guide: `.reference/getting-started-guide.md`
-- Commands: `.reference/voice-commands-guide.md`
-- Architecture: `.reference/task-tracker-architecture.md`
+- `.reference/voice-commands-guide.md` - Complete command reference
+- `.reference/task-tracker-architecture.md` - Technical details
+- `.reference/user_workflows.md` - Usage patterns
+
+### Support
+- GitHub Issues for bug reports
+- Documentation in `.reference/` folder
+- Code comments for implementation details
 
 ## Next Steps
 
-### Customize Your Experience
-1. Explore all voice commands
-2. Set up your task categories
-3. Develop your workflow
+1. **Master Voice Commands**
+   - Practice with different phrasings
+   - Learn the 7 intent types
+   - Experiment with compound commands
 
-### Advanced Features
-1. Try the AI-powered help system
-2. Experiment with bulk operations
-3. Use natural task references
+2. **Optimize Your Workflow**
+   - Find your preferred mode
+   - Set up categories for your work
+   - Develop command patterns
 
-### Extend the System
-1. Review the architecture guide
-2. Explore service implementations
-3. Consider adding integrations
+3. **Extend the System**
+   - Customize categories in code
+   - Add new voice commands
+   - Integrate with other tools
+   - Enable agent service for automation
+
+## Quick Command Reference
+
+### Essential Commands
+- "Add a task to [description]"
+- "Mark [task] as complete"
+- "Show me my tasks"
+- "Delete [task]"
+- "What should I work on?"
+
+### Priority Commands
+- "Add a high priority task..."
+- "Make [task] urgent"
+- "Show me high priority tasks"
+
+### Category Commands
+- "Add a client task..."
+- "Show me business tasks"
+- "Move [task] to personal"
+
+### Bulk Operations
+- "Help me prioritize"
+- "Clear completed tasks"
+- "Show task statistics"
+
+Happy task managing! 🎯

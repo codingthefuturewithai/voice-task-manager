@@ -1,154 +1,247 @@
-# Voice Commands Guide
+# Voice Commands Guide for Task Tracker
 
-## Command Categories
+## Overview
+The Task Tracker supports natural language voice commands for managing tasks through two intelligent processing systems:
+1. **LLMService**: Processes voice commands and detects user intent
+2. **AgentService** (Optional): Provides advanced automation with 10 specialized task management tools
 
-### Task Addition Commands
-Natural language patterns for adding tasks:
+Simply speak naturally, and the AI will understand your intent and execute the appropriate actions.
 
-#### Basic Add
-- "Add a task to [description]"
-- "Create a task to [description]"
-- "I need to [description]"
-- "Remember to [description]"
+## Supported Intents
 
-#### With Priority
-- "Add a high priority task to [description]"
-- "Create an urgent task to [description]"
-- "Add a low priority task to [description]"
+The system recognizes 7 primary intents from voice commands:
 
-#### With Category
-- "Add a client task to [description]"
-- "Create a business task to [description]"
-- "Add a personal task to [description]"
+### 1. Add Task (`add` intent)
+Create a new task with optional priority and category.
 
-#### Combined
-- "Add a high priority client task to [description]"
-- "Create an urgent business task to [description]"
+**Basic Examples:**
+- "Add a task to call the dentist"
+- "Create a task to review the contract"
+- "I need to send the invoice"
+- "Remember to pick up groceries"
 
-### Task Modification Commands
+**With Priority:**
+- "Add a high priority task to finish the report"
+- "Create an urgent task to call the client"
+- "Add a low priority task to organize desk"
 
-#### Change Description
-- "Change [task reference] to [new description]"
-- "Update [task reference] to say [new description]"
-- "Rename [task reference] to [new description]"
+**With Category:**
+- "Add a client task to prepare presentation"
+- "Create a business task to update budget"
+- "Add a personal task to schedule dentist"
 
-#### Change Priority
-- "Set [task reference] to high priority"
-- "Make [task reference] urgent"
-- "Change [task reference] to low priority"
-- "Deprioritize [task reference]"
+**Combined:**
+- "Add a high priority client task to send proposal"
+- "Create an urgent business task to fix the bug"
 
-#### Change Category
-- "Mark [task reference] as client"
-- "Set [task reference] to business"
-- "Change [task reference] to personal"
-- "Categorize [task reference] as [category]"
+### 2. Complete Task (`complete` intent)
+Mark a task as done/completed.
 
-### Task Completion Commands
-- "Mark [task reference] as complete"
-- "Complete [task reference]"
-- "Finish [task reference]"
-- "Done with [task reference]"
-- "Check off [task reference]"
-- "I finished [task reference]"
+**Examples:**
+- "Mark the dentist task as complete"
+- "Complete the invoice task"
+- "I finished the presentation"
+- "Done with calling the client"
+- "Check off the grocery shopping"
+- "The report is finished"
 
-### Task Deletion Commands
-- "Delete [task reference]"
-- "Remove [task reference]"
-- "Cancel [task reference]"
-- "Get rid of [task reference]"
-- "Drop [task reference]"
+### 3. Modify/Update Task (`modify` intent)
+Change an existing task's text, priority, or category.
 
-### Query Commands
+**Change Description:**
+- "Change the meeting task to include agenda"
+- "Update the presentation to add slides"
+- "Rename the report task to quarterly report"
 
-#### Status Queries
+**Change Priority:**
+- "Set the client call to high priority"
+- "Make the bug fix urgent"
+- "Change the meeting to low priority"
+- "Increase priority on the proposal"
+
+**Change Category:**
+- "Move the dentist task to personal"
+- "Set the presentation to client category"
+- "Categorize the budget review as business"
+
+### 4. Delete Task (`delete` intent)
+Remove a task from the list.
+
+**Examples:**
+- "Delete the grocery shopping task"
+- "Remove the old meeting task"
+- "Cancel the dentist appointment"
+- "Get rid of the completed presentation"
+- "Drop the draft task"
+- "Clear all completed tasks"
+
+### 5. Query Tasks (`query` intent)
+Ask questions about your tasks.
+
+**Status Queries:**
 - "What should I work on next?"
 - "What's my highest priority?"
 - "Show me pending tasks"
-- "What tasks are not done?"
-- "What have I completed?"
+- "What have I completed today?"
 
-#### Filtered Queries
+**Filtered Queries:**
 - "Show me all high priority tasks"
 - "List all client tasks"
 - "What business tasks do I have?"
-- "Show me personal tasks"
 - "Display urgent items"
 
-#### Count Queries
+**Count Queries:**
 - "How many tasks do I have?"
 - "How many are pending?"
-- "How many are complete?"
 - "What's my task count?"
 
-### Bulk Operations
+### 6. Brain Dump Mode (`braindump` intent)
+Quickly capture multiple tasks from stream-of-consciousness speech.
 
-#### Prioritization
-- "Prioritize my tasks"
-- "Sort my tasks by priority"
+**Examples:**
+- "I need to call the dentist tomorrow, finish the quarterly report by Friday, and remember to pick up dry cleaning"
+- "Grocery shopping, pay bills, client presentation prep, workout schedule, book flights"
+- Stream-of-consciousness speech with multiple action items
+
+The system will:
+- Extract individual actionable tasks
+- Assign appropriate priorities based on urgency words
+- Categorize tasks based on context
+- Clean up filler words and make tasks concise
+
+### 7. Prioritize Tasks (`prioritize` intent)
+Get help organizing and prioritizing your task list.
+
+**Examples:**
+- "Help me prioritize my tasks"
+- "What should I focus on first?"
+- "Organize my tasks by importance"
+- "Which tasks are most urgent?"
+- "Suggest task priorities"
 - "Auto-prioritize everything"
-- "Suggest priorities"
 
-#### Clearing
-- "Clear all tasks"
-- "Delete everything"
-- "Start fresh"
-- "Remove all completed tasks"
+## Task Properties
 
-#### Filtering
-- "Hide completed tasks"
-- "Show only pending"
-- "Focus on high priority"
+### Priority Levels
+- **High**: Urgent and important tasks
+  - Keywords: urgent, ASAP, critical, important, immediately
+- **Medium**: Default priority for most tasks
+  - Default when no priority is specified
+- **Low**: Tasks that can wait
+  - Keywords: eventually, someday, when possible, low priority
+
+### Categories
+- **Client**: Client-related work and deliverables
+  - Keywords: client, customer, presentation, proposal, meeting
+- **Business**: Internal business tasks and operations
+  - Keywords: business, internal, budget, report, planning
+- **Personal**: Personal reminders and life tasks
+  - Keywords: personal, home, family, doctor, grocery
 
 ## Task Reference Patterns
 
-The system uses fuzzy matching to identify tasks. You can reference tasks by:
+The system uses fuzzy matching to identify tasks:
 
-### Position
+### By Position
 - "the first task"
 - "the last task"
-- "the second one"
 - "task number 3"
+- "the second one"
 
-### Keywords
+### By Keywords
 - "the documentation task"
 - "the one about the meeting"
 - "the budget review"
 - "that client task"
 
-### Partial Matches
-- If task is "Review quarterly financial report"
-  - "the financial report"
-  - "quarterly review"
-  - "the report"
+### By Partial Matches
+If task is "Review quarterly financial report":
+- "the financial report"
+- "quarterly review"
+- "the report"
 
-### Priority/Category
+### By Properties
 - "the high priority task"
 - "that urgent one"
 - "the client task"
 - "my personal item"
 
-## Brain Dump Mode Patterns
+## Agent Service Tools (When Available)
 
-In Brain Dump mode, speak naturally about multiple tasks:
+If the optional AgentService is initialized, these tools are available:
 
-### Sequential Lists
-"I need to finish the report, call the client, and schedule a team meeting"
-→ Creates 3 tasks
+1. **list_tasks** - List tasks with filtering options
+2. **add_task** - Create new tasks with priority and category
+3. **complete_task** - Mark tasks as completed
+4. **update_task** - Modify existing task properties
+5. **delete_task** - Remove tasks from the system
+6. **get_tasks_by_priority** - Filter tasks by priority level
+7. **get_tasks_by_category** - Filter tasks by category
+8. **get_pending_tasks** - Show only incomplete tasks
+9. **get_completed_tasks** - Show only finished tasks
+10. **get_task_stats** - Generate task statistics
 
-### Contextual Grouping
-"For the project, I should review the specs, update the timeline, and send status updates"
-→ Creates 3 business tasks
+## Voice Feedback Responses
 
-### Mixed Priorities
-"Urgently fix the login bug, when I have time organize my desk, and don't forget the client call tomorrow"
-→ Creates tasks with different priorities
+### Success Confirmations
+- "Task added successfully"
+- "Task marked as complete"
+- "Task deleted"
+- "Priority updated to high"
+- "Category changed to client"
+
+### Query Responses
+- "You have 5 pending tasks"
+- "Your highest priority task is..."
+- "Here are your client tasks..."
+- "You should work on..."
+
+### Error Handling
+- "I couldn't find that task"
+- "Please be more specific"
+- "No tasks match your description"
+- "Would you like me to create a new task instead?"
+
+## Tips for Better Recognition
+
+### Speaking Clearly
+- Speak at normal pace
+- Articulate clearly
+- Minimize background noise
+- Wait for the recording indicator
+
+### Effective Commands
+- Start with action verb (add, delete, mark, show)
+- Be specific about what you want
+- Use natural language, not keywords
+- Include context when helpful
+
+### Handling Ambiguity
+- Use unique keywords from task text
+- Mention priority or category if needed
+- Use position for simple lists
+- Be more specific if multiple matches exist
+
+## Advanced Patterns
+
+### Compound Commands
+- "Add a task to call John and mark it as high priority"
+- "Complete the report task and delete the draft"
+- "Show me client tasks that are high priority"
+
+### Bulk Operations
+- "Mark all client tasks as high priority"
+- "Complete all tasks containing 'email'"
+- "Delete all completed tasks"
+- "Clear everything and start fresh"
 
 ### Time References
-"Today I need to finish the presentation, tomorrow call the vendor, and by Friday submit the proposal"
-→ Creates tasks (time references noted in description)
+- "Add task to call client tomorrow"
+- "Remind me to submit report by Friday"
+- "Schedule meeting for next week"
+(Note: Time references are captured in task text, not scheduled)
 
-## Command Confidence
+## Confidence Scoring
 
 The system provides confidence scores for command interpretation:
 
@@ -165,63 +258,20 @@ The system provides confidence scores for command interpretation:
 ### Low Confidence (<50%)
 - Very ambiguous commands
 - Multiple possible matches
-- Unclear intent
 - System asks for clarification
 
-## Voice Feedback Responses
+## Getting Help
 
-The system provides voice confirmations:
-
-### Success Responses
-- "Task added successfully"
-- "Task marked as complete"
-- "Task deleted"
-- "Priority updated to high"
-
-### Query Responses
-- "You have 5 pending tasks. The highest priority is..."
-- "Here are your client tasks..."
-- "You should work on..."
-
-### Error Responses
-- "I couldn't find that task"
-- "Please be more specific"
-- "No tasks match your description"
-
-## Tips for Better Recognition
-
-### Speaking Clearly
-- Speak at normal pace
-- Articulate clearly
-- Avoid background noise
-- Wait for the beep before speaking
-
-### Command Structure
-- Start with action verb (add, delete, mark, show)
-- Be specific about what you want
-- Use natural language, not keywords
-- Include context when helpful
-
-### Task References
-- Use unique keywords from task text
-- Mention priority or category if ambiguous
-- Use position (first, last) for simple lists
-- Be more specific if multiple matches exist
-
-## Advanced Patterns
-
-### Conditional Commands
-- "If there are any high priority tasks, show them"
-- "Mark all client tasks as high priority"
-- "Complete all tasks containing 'email'"
-
-### Compound Commands
-- "Add a task to call John and mark it as high priority"
-- "Complete the report task and delete the draft task"
-- "Show me client tasks that are high priority"
-
-### Meta Commands
+### Voice Commands for Help
 - "What can I say?"
 - "Help me with commands"
 - "Show me examples"
-- "How do I..."
+- "How do I add a task?"
+- "What commands are available?"
+
+### UI Help Button
+Click the "Show Help" button in the interface for:
+- Command reference
+- Example patterns
+- Tips and tricks
+- Troubleshooting guide

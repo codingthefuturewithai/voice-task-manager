@@ -1,7 +1,7 @@
 # Task Tracker Architecture Guide
 
 ## Overview
-The Voice Task Manager is a Streamlit-based web application that enables natural voice interaction for task management. It uses OpenAI's Whisper for speech-to-text and GPT-5 nano for natural language understanding.
+The Voice Task Manager is a Streamlit-based web application that enables natural voice interaction for task management. It uses OpenAI's Whisper for speech-to-text and GPT-5 nano for natural language understanding, with an optional advanced agent service powered by LangGraph for automated task operations.
 
 ## Technology Stack
 
@@ -17,8 +17,9 @@ The Voice Task Manager is a Streamlit-based web application that enables natural
 - `openai` - API client for Whisper and GPT
 - `python-dotenv` - Environment variable management
 - `pydantic` - Data validation and settings management
-- `langgraph` - Agent framework for advanced automation
+- `langgraph` - Agent framework for advanced automation (optional enhancement)
 - `langchain-openai` - LangChain OpenAI integration
+- `langchain-core` - Core LangChain tools and utilities
 - Browser-native APIs for speech synthesis (no external TTS libraries)
 
 ## Architecture Patterns
@@ -27,7 +28,7 @@ The Voice Task Manager is a Streamlit-based web application that enables natural
 The application follows a clean service-oriented architecture with separation of concerns:
 
 ```
-app.py (UI Layer)
+app.py (Main UI Layer)
     ↓
 Services Layer
     ├── WhisperService (Speech-to-Text)
@@ -92,11 +93,21 @@ Services Layer
 - Context-aware suggestions
 - Tutorial guidance
 
-#### AgentService (agent_service.py) - Optional
-- Advanced task automation
-- Multi-step task execution
-- Integration with external tools
-- Autonomous task management
+#### AgentService (agent_service.py) - Optional Enhancement
+- LangGraph-based intelligent agent using create_react_agent
+- Direct LangChain tool integration for task automation
+- Autonomous task management with 10 specialized tools:
+  - `list_tasks` - List tasks with filtering options
+  - `add_task` - Create new tasks with priority and category
+  - `complete_task` - Mark tasks as completed
+  - `update_task` - Modify existing task properties
+  - `delete_task` - Remove tasks from the system
+  - `get_tasks_by_priority` - Filter tasks by priority level
+  - `get_tasks_by_category` - Filter tasks by category
+  - `get_pending_tasks` - Show only incomplete tasks
+  - `get_completed_tasks` - Show only finished tasks
+  - `get_task_stats` - Generate task statistics
+- Graceful fallback if not available (app works without it)
 
 ## Data Model
 
